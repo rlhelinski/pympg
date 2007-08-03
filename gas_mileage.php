@@ -1,58 +1,29 @@
 <?php list($begin_usec, $begin_sec) = explode(" ", microtime()); ?>
-<!-- Gas Mileage PHP Database, by Ryan Helinski
-gas_mileage.php, version 0.7
-
-Coming Soon: Export to spreadsheet format
-
-since 0.6:
-* Fixed all the warnings/notices that were being generated but not printed
-  unless enabled by the PHP server. This just makes the code more robust,
-  and may have fixed a few potential bugs.
-
-* This also included adding defaults for the add record form a format
-  which allows the fields to be non-empty in the case there was no 
-  corresponding post data. In other words, the fields could have example
-  values by default and a javascript could clear that value upon a click
-  so the user doesn't have to erase anything. Not interesting to me yet.
-
-    since 0.5:
-    Added a new plot function, which calls a gnuplot script and converts the 
-    eps to png for display. Requires "gnuplot" and libgp.
-
-    since 0.4: 
-	added data conversion/formatting for form input
-	various bug fixes and added statistics
-
-    since 0.3: added prediction of next service interval and fixed bugs,
-               added Station field
-    since 0.2: added date conversion to UTC and math for time
-               validated math with spreadsheet
-    since 0.1: added password protection for adding records
--->
+<!-- Gas Mileage PHP Database, by Ryan Helinski -->
 <html>
 <head>
 <title>PHP Gas Mileage Database</title>
-<style type="text/css">
-   pre {
-   font-size: 10pt;
- }
-   
-   .code {
-     font-size: 10pt;
-     font-family: Courier New,monospace;
-   }
-   
-   .footnote {
-     font-size: 10pt;
-     font-style: Italic;
-   }
-</style>
 </head>
 <body>
 
 <?php
 
-if (isset($_GET['filename']))
+$configFile = "var/datafiles.txt";
+$varRoot = "var";
+
+$function_list = array('summary','print','add record',"plot",'create');
+
+$functionDesc = array (
+	"print" => "Reduced printer-friendly report",
+	"summary" => "Full report with derived statistics"
+);
+
+$configArray = array();
+$carArray = array();
+$recordArray = array();
+
+
+if (isset($_GET['datafile']))
   $filename = $_GET['datafile'];
 else if (isset($_POST['datafile']))
   $filename = $_POST['datafile'];
@@ -71,205 +42,291 @@ $min_mpg = INF;
 $records = -1;
 $format = '%m/%d/%Y';
 
+function readConfigFile($fileName) {
+	global $configArray;
+	$newArray = array();
+
+	if (count($configArray)>0)
+		return;
+	
+	if (($handle = fopen($fileName, "r"))===false)
+		echo "Couldn't open ".$fileName;
+		
+	while(!feof($handle)) {
+		if (($buffer = fgets($handle, 4096))!==false)
+		{
+			$buffer = rtrim ($buffer);
+			parse_str($buffer,$newArray);
+//			$configArray[] = $newArray;
+			$configArray = array_merge($configArray,$newArray);
+		}
+	}
+	echo "<pre>";
+	print_r($configArray);
+	echo "</pre>";
+	
+}
+
+function readDataFile($fileName) {
+	global $carArray;
+	global $recordArray;
+	global $varRoot;
+
+	if (count($carArray)>0)
+		return;
+
+	if (($handle = fopen($varRoot.'/'.$fileName, "r"))===false)
+		echo "Couldn't open ".$fileName;
+
+	while(!feof($handle)) {
+		$newRecord = array();
+
+		if (($buffer = fgets($handle, 4096))!==false) {
+			$buffer = trim($buffer);
+			parse_str($buffer,$newRecord);
+			if (count($carArray)>0)
+				$recordArray[] = $newRecord;
+			else 
+				$carArray = $newRecord;
+		}
+	}
+
+	echo "<pre>";
+	print_r($carArray);
+	print_r($recordArray);
+	echo "</pre>";
+}
+
+function addRecord ($filename, $record) {
+	$newstring = http_build_query($record)."\n";
+
+	// Let's make sure the file exists and is writable first.
+	if (is_writable($filename)) {
+		// Create a backup copy. This is not critical
+	 
+		if (!copy($filename, $filename."~"))
+		    echo "Failed to create backup.\n";
+
+		if (!$handle = fopen($filename, 'a')) {
+			echo "Cannot open file ($filename)";
+			exit;
+		}
+
+		if (fwrite($handle, $newstring) === FALSE) {
+			echo "Cannot write to file ($filename)";
+			exit;
+		}
+	 
+		echo "Successfully added record to ".$filename."<br>\n";
+			$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
+
+		fclose($handle);
+
+	} else {
+		echo "The file $filename is not writable";
+	}
+	
+}
+
 // SUMMARY / PRINT CODE
 if ($filename != "" && 
  	(isset($_POST['function']) && $_POST['function'] == "summary") 
    || (isset($_POST['function']) && $_POST['function'] == "print"))
   {
     # We only read the file here
-    $handle = fopen($filename, "r");
+	readDataFile($filename);
 
-    if ($handle) {
-      // Get header from file
-      $buffer = fgets($handle, 4096);
-      parse_str($buffer);
+	echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Records</h1>\n";
 
-      echo "<h1>".$make." ".$model." Gas Mileage Records</h1>\n";
+	echo "<p>Data File Name: <tt>";
+	if ($_POST['function'] != "print")
+		echo "<a href=\"".$filename."\">".$filename."</a>";
+	else 
+		echo $filename;
 
-      echo "<p>Data File Name: <span class=\"code\">";
-      if ($_POST['function'] != "print")
-	echo "<a href=\"".$filename."\">".$filename."</a>";
-      else echo $filename;
-      echo "</span>, Table Format: <b>"
-	.($_POST['function']=="print"?
-	"Reduced printer-friendly report"
-	:"Full report with derived statistics")
-	."</b></p>\n"; 
+	echo "</tt>, Table Format: <b>"
+		.$functionDesc[$_POST['function']]."</b></p>\n"; 
 
-      echo "<p>Year: <b>".$year."</b>, Make: <b>".$make."</b>, Model: <b>"
-	.$model."</b>, Owner: <b>".$owner . "</b>, Tank Size: <b>".$tanksize
-	."</b></p>\n";
+	echo "<p>Year: <b>".$carArray['year']."</b>, Make: <b>".$carArray['make']
+		."</b>, Model: <b>".$carArray['model']."</b>, Owner: <b>".$carArray['owner']
+		."</b>, Tank Size: <b>".$carArray['tanksize']."</b></p>\n";
 
-      if ($_POST['function'] == "print")
-	echo "<table border=1 width=100%>\n";
-      else
-	echo "<table border=0 width=100%>\n";
+	// TODO do this is CSS instead
+	if ($_POST['function'] == "print")
+		echo "<table border=1 width=100%>\n";
+	else
+		echo "<table border=0 width=100%>\n";
 
-      // Print Heading Row
-      echo "<tr bgcolor=\"#F0F0F0\">"
-	."<td><b>Date</b></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><b>Days</b></td>" : "")
-	."<td align=right><b>Odo.</b></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><b>Trvl'd</b></td>" : "")
-	."<td align=right><b>Gallons</b></td>"
-	."<td align=right><b>$/gal</b></td>"
-	."<td align=right><b>cost</b></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><b>mi/day</b></td>" : "")
-	."<td><b>Location</b></td>"
-	."<td><b>Station</b></td>"
-	."<td><b>Filled?</b></td>"
-	.($_POST['function']=="summary" ? 
-		"<td align=right><b>Miles/Gal</b></td>" : "")
-	.(isset($prnt_rng_avg) ? "<td align=right><b>Rng.Avg.</b></td>" : "")
-	."</tr>\n";
+	// Print Heading Row
+	echo "<tr bgcolor=\"#F0F0F0\">"
+		."<td><b>Date</b></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><b>Days</b></td>" : "")
+		."<td align=right><b>Odo.</b></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><b>Trvl'd</b></td>" : "")
+		."<td align=right><b>Gallons</b></td>"
+		."<td align=right><b>$/gal</b></td>"
+		."<td align=right><b>cost</b></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><b>mi/day</b></td>" : "")
+		."<td><b>Location</b></td>"
+		."<td><b>Station</b></td>"
+		."<td><b>Filled?</b></td>"
+		.($_POST['function']=="summary" ? 
+			"<td align=right><b>Miles/Gal</b></td>" : "")
+		.(isset($prnt_rng_avg) ? "<td align=right><b>Rng.Avg.</b></td>" : "")
+		."</tr>\n";
 
-      while (!feof($handle)) {
-	$records = $records + 1;
-
-	// Get Record From File
-	if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
-	  { $opts = "bgcolor=\"#ffffb0\""; } 
-	else { $opts = ""; }
-
-	$buffer = fgets($handle, 4096);
-	if ( $buffer == "" ) break;
-	
-	$note = "";
-
-	parse_str($buffer);
-
-	// Update global stats
-	if ($records > 0)
-	  { 
-	    $global_gals = $global_gals + $gals;
-	    $travelled = $odo - $last_odo;
-
-	    if ($max_range < $travelled) 
-	      { $max_range = $travelled; }
-
-	    $mpg = ($odo-$last_odo)/$gals;
-	    if ($topd{0} == "Y")
-	      {
-		if ($max_mpg < $mpg) $max_mpg = $mpg;
-		if ($min_mpg > $mpg) $min_mpg = $mpg;
-	      } 
-
-	    $time_elap = strtotime($date) - strtotime($last_date);
-	    $days_elap = round ($time_elap / 86400);
-	    $global_days = $global_days + $days_elap;
-	    $global_miles = $global_miles + $travelled; 
-	    $tank_cost = round($price*$gals,2);
-	    $global_cost = $global_cost + $tank_cost;
-	    $miles_per_day = $travelled/$days_elap;
-
-	  }
-	else { 
-	  $first_gals = $gals;
-	  $travelled = $days_elap = "N/A";
-	  $tank_cost = 0;
-	  $travelled = 0;
-	  $days_elap = 0; 
-	  $miles_per_day = 0;
-	  $mpg = 0;
-	}
-
-	// Print Table Row
-	echo "<tr $opts>"
-	."<td>".$date
-	.(chop($note) != "" && $_POST['function'] == "summary" ?
-		" <img src=\"fat_pen.png\" alt=\"".chop($note)
-		."\" title=\"".chop($note)."\">" : "" )
-	."</td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right>".$days_elap."</td>" : "")
-	."<td align=right>".number_format($odo)."</td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right>".$travelled."</td>" : "")
-	."<td align=right>".number_format($gals,3)."</td>"
-	."<td align=right>".number_format($price,3)."</td>"
-	."<td align=right>".number_format($tank_cost,2)."</td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right>".number_format($miles_per_day,2)."</td>"
-		: "")
-	."<td>".$loc."</td>"
-	."<td>".$name."</td>"
-	."<td>".$topd."</td>";
-
-	if ($_POST['function']=="summary") {
-	if (isset($last_topd) && $topd{0} == "Y" && $last_topd != "") { 
-	  echo "<td align=right>".number_format($mpg,1)."</td>"; }
-	else { echo "<td align=right>(".number_format($mpg,1).")</td>"; }
-	}
-
-	if (isset($prnt_rng_avg))
+//      while (!feof($handle)) {
+	foreach ($recordArray as $record)
 	{
-	  if ($gals+$last_gals > 0)
-	    $rng_avg = number_format(($odo-$last_last_odo)/($gals+$last_gals),1);
-	  else 
-	    $rng_avg = "N/A";
+		if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
+//			$opts = "bgcolor=\"#ffffb0\"";
+			$opts = " class=\"odd\"";
+		else
+			$opts = "";
+
+		$records = $records + 1;
+
+		// Get Record From File
+		if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
+			$opts = "bgcolor=\"#ffffb0\""; 
+		else $opts = "";
+
+		// Update global stats
+		if ($records > 0)
+		{
+			$global_gals = $global_gals + $record['gals'];
+			$travelled = $record['odo'] - $last_odo;
+		
+			if ($max_range < $travelled) 
+				$max_range = $travelled;
+		
+			$mpg = ($record['odo']-$last_odo)/$record['gals'];
+			if ($record['topd'][0] == "Y")
+			{
+				if ($max_mpg < $mpg) $max_mpg = $mpg;
+				if ($min_mpg > $mpg) $min_mpg = $mpg;
+			}
+		
+			$time_elap = strtotime($record['date']) - strtotime($last_date);
+			$days_elap = round ($time_elap / 86400);
+			$global_days = $global_days + $days_elap;
+			$global_miles = $global_miles + $travelled; 
+			$tank_cost = round($record['price']*$record['gals'],2);
+			$global_cost = $global_cost + $tank_cost;
+			$miles_per_day = $travelled/$days_elap;
+		
+		}
+		else { 
+		  $first_gals = $record['gals'];
+		  $travelled = $days_elap = "N/A";
+		  $tank_cost = 0;
+		  $travelled = 0;
+		  $days_elap = 0; 
+		  $miles_per_day = 0;
+		  $mpg = 0;
+		}
+
+		// Print Table Row
+		echo "<tr$opts>"
+		."<td>".$record['date']
+		.($_POST['function'] == "summary" && 
+			isset($record['note']) && chop($record['note']) != "" ? 
+			" <img src=\"fat_pen.png\" alt=\"note\" title=\""
+			.chop($record['note'])."\">" : "" )
+		."</td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right>".$days_elap."</td>" : "")
+		."<td align=right>".number_format($record['odo'])."</td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right>".$travelled."</td>" : "")
+		."<td align=right>".number_format($record['gals'],3)."</td>"
+		."<td align=right>".number_format($record['price'],3)."</td>"
+		."<td align=right>".number_format($tank_cost,2)."</td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right>".number_format($miles_per_day,2)."</td>"
+			: "")
+		."<td>".$record['loc']."</td>"
+		."<td>".$record['name']."</td>"
+		."<td>".$record['topd']."</td>";
 	
-
-	  if ($last_last_odo != "" && $topd{0} == "Y" && $last_topd{0} == "Y" ) {
-	    echo "<td align=right>".$rng_avg."</td>";
-	  } else { echo "<td align=right>(".$rng_avg.")</td>"; }	  
+		if ($_POST['function']=="summary") {
+			if (isset($last_topd) && $record['topd'][0] == "Y" && $last_topd != "") { 
+				echo "<td align=right>".number_format($mpg,1)."</td>"; }
+			else { 
+				echo "<td align=right>(".number_format($mpg,1).")</td>"; 
+			}
+		}
+	
+		if (isset($prnt_rng_avg))
+		{
+			if ($gals+$last_gals > 0)
+				$rng_avg = number_format(($odo-$last_last_odo)/($gals+$last_gals),1);
+			else 
+				$rng_avg = "N/A";
+		
+	
+			if ($last_last_odo != "" && $topd{0} == "Y" && $last_topd{0} == "Y" ) {
+				echo "<td align=right>".$rng_avg."</td>";
+			} else { 
+				echo "<td align=right>(".$rng_avg.")</td>"; 
+			}
+		}
+		echo "</tr>\n";
+	
+		// In the printer-friendly case, print a row with the note on file
+		if ($_POST['function']=="print" && chop($note) != "")
+			#echo "<tr><td><i>Note -></i></td><td colspan=7><i>"
+			echo "<tr><td></td><td colspan=7><i>"
+			.chop($note)."</i></td></tr>";
+	
+		// Save Some Data for Next Iteration
+		if (isset($last_odo)) $last_last_odo = $last_odo;
+		$last_odo = $record['odo'];
+		$last_date = $record['date'];
+		$last_gals = $record['gals'];
+		$last_topd = $record['topd'];
 	}
-	echo "</tr>\n";
-
-	// In the printer-friendly case, print a row with the note on file
-	if ($_POST['function']=="print" && chop($note) != "")
-		#echo "<tr><td><i>Note -></i></td><td colspan=7><i>"
-		echo "<tr><td></td><td colspan=7><i>"
-		.chop($note)."</i></td></tr>";
-
-	// Save Some Data for Next Iteration
-	if (isset($last_odo)) $last_last_odo = $last_odo;
-	$last_odo = $odo;
-	$last_date = $date;
-	$last_gals = $gals;
-	$last_topd = $topd;
-      }
-      fclose($handle);
 
 	// Print units row / table footer
-      echo "<tr bgcolor=\"#F0F0F0\">"
-	."<td><i>mm/dd/yyyy</i></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><i>days</i></td>" : "")
-	."<td align=right><i>miles</i></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><i>miles</i></td>" : "")
-	."<td align=right><i>gallons</i></td>"
-	."<td align=right><i>USD</i></td>"
-	."<td align=right><i>USD</i></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><i>miles</i></td>" : "")
-	."<td></td>"
-	."<td></td>"
-	."<td><i>yes/no</i></td>"
-	.($_POST['function']=="summary" ?
-		"<td align=right><i>miles/gal</i></td>" : "")
-	.(isset($prnt_rng_avg) ? "<td align=right><i>miles/gal</i></td>" : "")
-	."</tr>\n";
+	echo "<tr bgcolor=\"#F0F0F0\">"
+		."<td><i>mm/dd/yyyy</i></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><i>days</i></td>" : "")
+		."<td align=right><i>miles</i></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><i>miles</i></td>" : "")
+		."<td align=right><i>gallons</i></td>"
+		."<td align=right><i>USD</i></td>"
+		."<td align=right><i>USD</i></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><i>miles</i></td>" : "")
+		."<td></td>"
+		."<td></td>"
+		."<td><i>yes/no</i></td>"
+		.($_POST['function']=="summary" ?
+			"<td align=right><i>miles/gal</i></td>" : "")
+		.(isset($prnt_rng_avg) ? "<td align=right><i>miles/gal</i></td>" : "")
+		."</tr>\n";
 
-      echo "</table>\n";
+	echo "</table>\n";
 
-      echo "<blockquote>\n"
-	."<h2>Gas Mileage Summary</h2>\n"
-	."Number of Records: <b>".$records."</b><br>\n"
-	."Total Gallons Consumed: <b>".number_format(round($global_gals))."</b> gallons<br>\n"
-	."Total Miles Travelled: <b>".number_format($global_miles)."</b> miles<br>\n"
-	."Total Days on Record: <b>".$global_days."</b> days, <b>".round($global_days/365.25,2)."</b> years<br>\n"
-      	."Total Gas Cost: <b>$".number_format(round($global_cost))."</b> US dollars<br>\n"
-	."Latest Gas Mileage: <b>".round(($last_odo-$last_last_odo)/$last_gals,2)."</b> mpg<br>\n";
+	echo "<blockquote>\n"
+		."<h2>Gas Mileage Summary</h2>\n"
+		."Number of Records: <b>".$records."</b><br>\n"
+		."Total Gallons Consumed: <b>".number_format(round($global_gals))."</b> gallons<br>\n"
+		."Total Miles Travelled: <b>".number_format($global_miles)."</b> miles<br>\n"
+		."Total Days on Record: <b>".$global_days."</b> days, <b>".round($global_days/365.25,2)."</b> years<br>\n"
+			."Total Gas Cost: <b>$".number_format(round($global_cost))."</b> US dollars<br>\n"
+		."Latest Gas Mileage: <b>".round(($last_odo-$last_last_odo)/$last_gals,2)."</b> mpg<br>\n";
 	
 
 
       echo "<h2>Estimated Statistics</h2>\n"
 	."Minimum Gas Mileage: <b>".round($min_mpg,1)."</b> miles/gallon<br>\n"
-        ."Average Gas Mileage: <b>".round($global_miles/($global_gals),1)
+		."Average Gas Mileage: <b>".round($global_miles/($global_gals),1)
 	."</b> miles/gallon<br>\n"
 	."Maxiumum Gas Mileage: <b>".round($max_mpg,1)."</b> miles/gallon<br>\n"
 	."Average Days Between Refeuling: <b>".round($global_days/($records-1))."</b> days<br>\n"
@@ -282,15 +339,15 @@ if ($filename != "" &&
 	." per day <b>".round($global_gals/$global_days,2)."</b> gallons<br>\n"
 	."Estimated Annual Gas Cost: <b>$".round(365.25*$global_cost/$global_days)."</b> US dollars"
 	." per day <b>$".round($global_cost/$global_days,2)."</b> US dollars<br>\n"
-      // The actual maximum range is the maximum distance between fueling
-      // The theoretical maximum range is the range one could drive with 
-      // average or maximum gas mileage with 100% of the tank's fuel.
+// The actual maximum range is the maximum distance between fueling
+// The theoretical maximum range is the range one could drive with 
+// average or maximum gas mileage with 100% of the tank's fuel.
 	."Average Range: <b>".round($global_miles/($records))
 	."</b> miles<br>\n"
 	."Maximum Range: <b>".$max_range."</b> miles<br>\n"
-	."Theoretical Range: <b>".round($tanksize*$global_miles/$global_gals)
-	." - ".round($tanksize*$max_mpg)."</b> miles<br>\n";
-	$estimated_mileage = $odo+($global_miles/$global_days)*(time()-strtotime($date))/86400;
+	."Theoretical Range: <b>".round($carArray['tanksize']*$global_miles/$global_gals)
+	." - ".round($carArray['tanksize']*$max_mpg)."</b> miles<br>\n";
+	$estimated_mileage = $last_odo+($global_miles/$global_days)*(time()-strtotime($last_date))/86400;
 	$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($global_miles/$global_days),1);
       	echo "Estimated Current Milage: <b>"
 	.round($estimated_mileage)
@@ -299,131 +356,81 @@ if ($filename != "" &&
 	//.round(($time_to_service*86400-time()+strtotime($date))/86400,2)
 	.round($days_to_service)
 	."</b> days, on or before <b>"
-	.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($date))."</b><br>\n"
+	.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($last_date))."</b><br>\n"
       	."</blockquote>\n";
 
-    }
-    else {
-      echo "Error: couldn't open ".$filename."!<br>\n";
-    }
-
-    //echo "<p><a href=\"add_form.php?datafile=".$filename
-    //."\">Add Refueling Record</a></p>";
-    //echo "<p><a href=\"index.php?\">Change Vehicle</a></p>";
-  }
+}
 
 // ADD RECORD CODE
 if ((isset($_POST['datafile']) && $_POST['datafile'] != "") 
   && (isset($_POST['function']) && $_POST['function'] == "add record"))
-  {
-    $datafile = $_POST['datafile'];
-    $index = 0;
-
-    // Retrieve the password hash
-    $handle = fopen("./datafiles.txt", "r");
-    $buffer = fgets($handle, 4096);
-    parse_str($buffer);
-    foreach ($file as $value)
-      {
-	if (rtrim($datafile) == rtrim($value))
-	  break;
-	$index = $index + 1;
-      }
-    $buffer = fgets($handle, 4096);
-    parse_str($buffer);
-    fclose($handle);
-    $password_hash = $password[$index];
+{
+    $datafile = $varRoot.'/'.$_POST['datafile'];
+	readConfigFile($configFile);
+    $index = array_search($_POST['datafile'],$configArray['file']);
+    $password_hash = $configArray['password'][$index];
     
     echo "<h1>Add Refueling Record</h1>\n";
-    echo "<p>Data File Name: <span class=\"code\"><a href=\"".$filename."\">"
-      .$filename."</a></span></p>\n";
+    echo "<p>Data File Name: <tt><a href=\"".$datafile."\">"
+      .$filename."</a></tt></p>\n";
+
+	$record = array();
 
     //I'm assuming if the date is empty, the user hasn't filled out any of the form. 
     if (isset($_POST['date']) && $_POST['date'] != "" )
-      {
-        $date = date("m/d/Y",strtotime($_POST['date'])); // USA style
-        $odo = number_format($_POST['odo'], 0, '.', '');
-        $gals = number_format($_POST['gals'], 3, '.', '');
-        $price = number_format($_POST['price'], 3, '.', '');
-        $loc = $_POST['loc'];
-        $name = $_POST['name'];
-        $topd = $_POST['topd'];
-        $note = $_POST['note'];
-      }
+	{
+		$record['date'] = date("m/d/Y",strtotime($_POST['date'])); // USA style
+		$record['odo'] = number_format($_POST['odo'], 0, '.', '');
+		$record['gals'] = number_format($_POST['gals'], 3, '.', '');
+		$record['price'] = number_format($_POST['price'], 3, '.', '');
+		$record['loc'] = $_POST['loc'];
+		$record['name'] = $_POST['name'];
+		$record['topd'] = $_POST['topd'];
+		$record['note'] = $_POST['note'];
+	}
 
     if ( isset($_POST['date']) &&($date_UTC = strtotime($_POST['date']))!==false )
-      {
-	if (md5($_POST['password']) != rtrim($password_hash))
-	  {
-	    echo "Error: Password doesn't match that on file.<br>\n";
-	    //echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
-	    exit;
-	  }
-	
-	$newstring = "date=".$date."&odo=".$odo."&gals=".$gals."&price="
-	  .$price."&loc=".$loc."&name=".$name."&topd=".$topd."&note=".$note."\n";
-
-	// Let's make sure the file exists and is writable first.
-	if (is_writable($filename)) {
-	 
-	  // Create a backup copy. This is not critical
-	  if (!copy($filename, $filename."~"))
-	    { echo "Failed to create backup.\n"; }
-
-	  // In our example we're opening $filename in append mode.
-	  // The file pointer is at the bottom of the file hence
-	  // that's where $somecontent will go when we fwrite() it.
-	  if (!$handle = fopen($filename, 'a')) {
-	    echo "Cannot open file ($filename)";
-	    exit;
-	  }
-
-	  // Write $somecontent to our opened file.
-	  if (fwrite($handle, $newstring) === FALSE) {
-	    echo "Cannot write to file ($filename)";
-	    exit;
-	  }
-	 
-	  echo "Successfully added record to ".$filename."<br>\n";
-          $date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
-
-	  fclose($handle);
+	{
+		if (md5($_POST['password']) != rtrim($password_hash))
+		{
+			echo "Error: Password doesn't match that on file.<br>\n";
+			//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+			exit;
+		}
+		
+		addRecord($datafile,$record);
 
 	} else {
-	  echo "The file $filename is not writable";
+		if (!isset($_POST['date']) || $_POST['date'] == "") 
+			echo "Please fill out the form and click submit.<br>\n";
+		else if (strtotime($_POST['date']) === false) echo "ERROR: Couldn't understand your date entry.<br>\n";
+		else echo "Failed to convert date entry \"".$_POST['date']."\" \"".$date_UTC."\".\n";
 	}
-      }
-    else {
-      if (!isset($_POST['date']) || $_POST['date'] == "") 
-        echo "Please fill out the form and click submit.<br>\n";
-      else if (strtotime($_POST['date']) === false) echo "ERROR: Couldn't understand your date entry.<br>\n";
-      else echo "Failed to convert date entry \"".$_POST['date']."\" \"".$date_UTC."\".\n";
-    }
     
     echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
       ."<input type=\"hidden\" name=\"function\" value=\"add record\" />\n"
-      ."<input type=\"hidden\" name=\"datafile\" value=\"".$datafile."\" />\n"
+      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" />\n"
       ."<pre>\n"
       ."Password:         <input name=\"password\" type=\"password\" />\n"
       ."Date:             <input name=\"date\" type=\"text\" value=\"".
-      (isset($date)?$date:"")."\" /> (ex.: 09/07/2006)\n"
+      (isset($record['date'])?$record['date']:"")."\" /> (ex.: 09/07/2006)\n"
       ."Odometer Reading: <input name=\"odo\" type=\"text\" value=\"".
-      (isset($odo)?$odo:"")."\" /> (ex.: 210512)\n"
+      (isset($record['odo'])?$record['odo']:"")."\" /> (ex.: 210512)\n"
       ."Gallons:          <input name=\"gals\" type=\"text\" value=\"".
-      (isset($gals)?$gals:"")."\"/> (ex.: 10.596)\n"
+      (isset($record['gals'])?$record['gals']:"")."\"/> (ex.: 10.596)\n"
       ."Price per Gallon: <input name=\"price\" type=\"text\" value=\"".
-      (isset($price)?$price:"")."\" /> (ex.: 2.199)\n"
+      (isset($record['price'])?$record['price']:"")."\" /> (ex.: 2.199)\n"
       ."Station:          <input name=\"name\" type=\"text\" value=\"".
-      (isset($price)?$name:"")."\" /> (ex.: Enron)\n"
+      (isset($record['price'])?$record['name']:"")."\" /> (ex.: Enron)\n"
       ."Location:         <input name=\"loc\" type=\"text\" value=\"".
-      (isset($loc)?$loc:"")."\" /> (ex.: Clarksville)\n"
+      (isset($record['loc'])?$record['loc']:"")."\" /> (ex.: Clarksville)\n"
       ."Topped Off:       <select name=\"topd\">\n"
       ."<option>Yes</option>"
       ."<option>No</option>"
       ."</select>\n"
       ."Notes:\n"
       ."<textarea name=\"note\" rows=\"2\" cols=\"40\" />"
-      .(isset($note)?$note:"")."</textarea>\n"
+      .(isset($record['note'])?$record['note']:"")."</textarea>\n"
       ."<input type=\"submit\" />"
       ."</pre>"
       ."</form>";
@@ -611,61 +618,45 @@ if (isset($_POST['function']) && $_POST['function'] == "plot")
 
 // PRINT DATABASE QUERY TOOL CODE
 if (!isset($_POST['function']) || $_POST['function'] != "print") {
-  if (!(isset($_POST['function']) && $_POST['function'] == "add record"))
-    {
-      //This will already have been done at this point
-      $handle = fopen("./datafiles.txt","r");
-      $buffer = fgets($handle, 4096);
-      parse_str ($buffer);
-      fclose($handle);
-    }  
+	readConfigFile($configFile);
 
-  if (!isset($_POST['datafile'])&&!isset($_GET['datafile']))
-    echo "<h1>PHP Gas Mileage Database</h1>\n";
-  else
-    echo "<hr><h2>New Database Query</h2>\n";
-  echo "<form action=\"".$page_address."\" method=\"post\">\n";
-  if ( count($file) > 0 )
-    {
-# MAKE THIS CODE LIKE NEXT CODE
-      echo "<p>Select Existing Data File: ";
-      echo "<select name=\"datafile\">";
-      if ($_POST['datafile'] != "")
-	echo "<option>".$_POST['datafile']."</option>\n";
-      foreach ($file as $value) {
-	if ($_POST['datafile'] != rtrim($value))
-	  echo "<option>".rtrim($value)."</option>\n";
-      }
-      echo "</select></p>\n";
-    }
+	if (!isset($_POST['datafile'])&&!isset($_GET['datafile']))
+		echo "<h1>PHP Gas Mileage Database</h1>\n";
+	else
+		echo "<hr><h2>New Database Query</h2>\n";
 
-  # MOVE THIS DECLARATION TO TOP
-  $function_list = array('summary','print','add record',"plot",'create');
+	echo "<form action=\"".$page_address."\" method=\"post\">\n";
 
-  echo "<p>Select Database Function: "
-    ."<select name=\"function\">\n";
+	if ( count($configArray['file']) > 0 )
+	{
+		echo "<p>Select Existing Data File: ";
+		echo "<select name=\"datafile\">";
+		foreach ( $configArray['file'] as $dataFile) {
+			echo "<option";
+			if (isset($_POST['datafile']) && $_POST['datafile']==$dataFile)
+				echo " selected";
+			echo ">".$dataFile."</option>\n";
+      	}
+      	
+		echo "</select>\n";
+	}
 
-  foreach ( $function_list as $func ) {
-    if ($_POST['function'] == $func) {
-      echo "<option selected>".$func."</option>\n";
-    } else {
-      echo "<option>".$func."</option>\n";
-    }
-  }
-  echo "</select>\n</p>\n";
-/*
-    ."<select name=\"function\">\n"
-    ."<option>summary</option>\n"
-    ."<option>print</option>\n"
-    ."<option>add record</option>\n"
-    ."<option>plot</option>\n"
-    ."<option>create</option>\n"
-    ."</select></p>\n";
-*/
-  echo "<input type=\"submit\" /></form>";
+	echo "<p>Select Database Function: "
+		."<select name=\"function\">\n";
 
-  if (isset($_POST['datafile']) && $_POST['datafile'] == "")
-    echo "<p>This program is a gas mileage database and analyzer written in PHP. It is self-contained (has a single source code file). It stores data in a simple text file in HTTP-query format. It allows users to add new records, and add new data files for different vehicles. It creates a backup before a new record is added. It also implements password protection for users to add refueling records. </p>\n";
+	foreach ( $function_list as $func ) {
+		echo "<option";
+		if (isset($_POST['function']) && $_POST['function'] == $func)
+			echo " selected";
+		echo ">".$func."</option>\n";
+	}
+
+	echo "</select>\n</p>\n";
+
+	echo "<input type=\"submit\" /></form>";
+
+	if (isset($_POST['datafile']) && $_POST['datafile'] == "")
+		echo "<p>This program is a gas mileage database and analyzer written in PHP. It is self-contained (has a single source code file). It stores data in a simple text file in HTTP-query format. It allows users to add new records, and add new data files for different vehicles. It creates a backup before a new record is added. It also implements password protection for users to add refueling records. </p>\n";
   
  }
 
@@ -676,7 +667,7 @@ if (!isset($_POST['function']) || $_POST['function'] != "print") {
 <?php 
 list($end_usec, $end_sec) = explode(" ", microtime());
 
-echo "Rendered in: "
+echo "Completed in: "
   .number_format($end_usec + $end_sec - $begin_usec - $begin_sec,3)
   ." s"; ?></span>
 </p>

@@ -1,0 +1,29 @@
+Gas Mileage PHP Database, by Ryan Helinski
+gas_mileage.php, version 0.7
+
+Coming Soon: Export to spreadsheet format
+
+since 0.6:
+* Fixed all the warnings/notices that were being generated but not printed
+  unless enabled by the PHP server. This just makes the code more robust,
+  and may have fixed a few potential bugs.
+
+* This also included adding defaults for the add record form a format
+  which allows the fields to be non-empty in the case there was no 
+  corresponding post data. In other words, the fields could have example
+  values by default and a javascript could clear that value upon a click
+  so the user doesn't have to erase anything. Not interesting to me yet.
+
+    since 0.5:
+    Added a new plot function, which calls a gnuplot script and converts the 
+    eps to png for display. Requires "gnuplot" and libgp.
+
+    since 0.4: 
+	added data conversion/formatting for form input
+	various bug fixes and added statistics
+
+    since 0.3: added prediction of next service interval and fixed bugs,
+               added Station field
+    since 0.2: added date conversion to UTC and math for time
+               validated math with spreadsheet
+    since 0.1: added password protection for adding records
