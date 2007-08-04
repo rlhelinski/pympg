@@ -464,7 +464,7 @@ if (isset($_POST['function']) && $_POST['function'] == "create")
 	   
 	   fclose($handle);
 
-	   // Create a backup copy. Failure of this is not fatal.
+		// Create a backup copy. Failure of this is not fatal.
 		if (!copy($configFile, $configFile."~"))
 			echo "Failed to create backup.\n";
 			
@@ -473,10 +473,15 @@ if (isset($_POST['function']) && $_POST['function'] == "create")
 		$configArray['file'][] = $_POST['filename'];
 		$configArray['password'][] = $_POST['password1'];
 
-		$handle = fopen("./datafiles.txt","w");
+		foreach ($configArray['file'] as $file)
+			$fileArray[] = "file[]=".$file;
+		foreach ($configArray['password'] as $password)
+			$passArray[] = "password[]=".$password;
+
+		$handle = fopen($configFile,"w");
 		if ($handle === false || 
-		fwrite($handle, implode("&",$configArray['file'])."\n")===false ||
-		fwrite($handle, implode("&",$configArray['password'])."\n")===false )
+		fwrite($handle, implode("&",$fileArray)."\n")===false ||
+		fwrite($handle, implode("&",$passArray)."\n")===false )
 		{
 			echo "Couldn't add the new file to the list of data files.<br>\n";
 			exit;

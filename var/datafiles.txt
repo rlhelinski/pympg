@@ -1,2 +1,2 @@
-file[]=ryan-matrix.txt&file[]=jenn-civic.txt
-password[]=7bfd4d773bec1249bb691bbad9d968a8&password[]=3cd38ab30e1e7002d239dd1a75a6dfa8
+file[]=ryan-matrix.txt&file[]=jenn-civic.txt&file[]=delme.txt
+password[]=7bfd4d773bec1249bb691bbad9d968a8&password[]=3cd38ab30e1e7002d239dd1a75a6dfa8&password[]=mine
