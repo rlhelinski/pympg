@@ -21,7 +21,3 @@ date=04/23/2007&odo=142119&gals=8.455&price=2.899&loc=Towson&name=Exxon&topd=Yes
 date=05/01/2007&odo=142418&gals=6.850&price=2.919&loc=Cockeysville&name=Hughes Oceanic&topd=Yes&note=
 date=05/04/2007&odo=142646&gals=8.343&price=2.999&loc=Ferndale&name=Zak's BP&topd=Yes&note=
 date=05/11/2007&odo=142934&gals=9.002&price=2.999&loc=Towson&name=Texaco&topd=Yes&note=
-date=09/07/2006&odo=210512&gals=10.596&price=2.199&loc=Clarksville&name=Enron&topd=Yes&note=Heheh
-
-date=09%2F07%2F2006&odo=210512&gals=10.596&price=2.199&loc=Deutschland&name=Enron&topd=Yes&note=
-date=09%2F07%2F2006&odo=210512&gals=10.596&price=2.199&loc=Clarksville&name=Enron&topd=Yes&note=

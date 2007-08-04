@@ -1,0 +1,22 @@
+/* Note this isn't currently used */
+
+PRE {
+   font-size: 10pt;
+ }
+   
+TT {
+     font-size: 10pt;
+}
+   
+TABLE TH {
+	background-color: #e6e6e6;
+}
+
+TABLE TR.odd {
+	background-color: #ffffb0;
+} 
+
+TABLE TR.units {
+	background-color: #e6e6e6;
+	font-style: italic;
+}

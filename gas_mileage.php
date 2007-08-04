@@ -3,6 +3,7 @@
 <html>
 <head>
 <title>PHP Gas Mileage Database</title>
+<link rel="stylesheet" type="text/css" href="spreadsheet.css">
 </head>
 <body>
 
@@ -61,9 +62,9 @@ function readConfigFile($fileName) {
 			$configArray = array_merge($configArray,$newArray);
 		}
 	}
-	echo "<pre>";
-	print_r($configArray);
-	echo "</pre>";
+//	echo "<pre>";
+//	print_r($configArray);
+//	echo "</pre>";
 	
 }
 
@@ -91,10 +92,10 @@ function readDataFile($fileName) {
 		}
 	}
 
-	echo "<pre>";
-	print_r($carArray);
-	print_r($recordArray);
-	echo "</pre>";
+//	echo "<pre>";
+//	print_r($carArray);
+//	print_r($recordArray);
+//	echo "</pre>";
 }
 
 function addRecord ($filename, $record) {
@@ -158,42 +159,36 @@ if ($filename != "" &&
 		echo "<table border=0 width=100%>\n";
 
 	// Print Heading Row
-	echo "<tr bgcolor=\"#F0F0F0\">"
-		."<td><b>Date</b></td>"
+	echo "<tr>"
+		."<th><b>Date</b></th>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><b>Days</b></td>" : "")
-		."<td align=right><b>Odo.</b></td>"
+			"<th align=right><b>Days</b></th>" : "")
+		."<th align=right><b>Odo.</b></th>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><b>Trvl'd</b></td>" : "")
-		."<td align=right><b>Gallons</b></td>"
-		."<td align=right><b>$/gal</b></td>"
-		."<td align=right><b>cost</b></td>"
+			"<th align=right><b>Trvl'd</b></th>" : "")
+		."<th align=right><b>Gallons</b></th>"
+		."<th align=right><b>$/gal</b></th>"
+		."<th align=right><b>cost</b></th>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><b>mi/day</b></td>" : "")
-		."<td><b>Location</b></td>"
-		."<td><b>Station</b></td>"
-		."<td><b>Filled?</b></td>"
+			"<th align=right><b>mi/day</b></th>" : "")
+		."<th><b>Location</b></th>"
+		."<th><b>Station</b></th>"
+		."<th><b>Filled?</b></th>"
 		.($_POST['function']=="summary" ? 
-			"<td align=right><b>Miles/Gal</b></td>" : "")
-		.(isset($prnt_rng_avg) ? "<td align=right><b>Rng.Avg.</b></td>" : "")
+			"<th align=right><b>Miles/Gal</b></th>" : "")
+		.(isset($prnt_rng_avg) ? "<th align=right><b>Rng.Avg.</b></th>" : "")
 		."</tr>\n";
 
 //      while (!feof($handle)) {
 	foreach ($recordArray as $record)
 	{
+		$records = $records + 1;
+
 		if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
 //			$opts = "bgcolor=\"#ffffb0\"";
 			$opts = " class=\"odd\"";
 		else
 			$opts = "";
-
-		$records = $records + 1;
-
-		// Get Record From File
-		if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
-			$opts = "bgcolor=\"#ffffb0\""; 
-		else $opts = "";
-
 		// Update global stats
 		if ($records > 0)
 		{
@@ -277,10 +272,11 @@ if ($filename != "" &&
 		echo "</tr>\n";
 	
 		// In the printer-friendly case, print a row with the note on file
-		if ($_POST['function']=="print" && chop($note) != "")
+		if ($_POST['function']=="print" && isset($record['note']) && 
+			chop($record['note']) != "")
 			#echo "<tr><td><i>Note -></i></td><td colspan=7><i>"
 			echo "<tr><td></td><td colspan=7><i>"
-			.chop($note)."</i></td></tr>";
+			.chop($record['note'])."</i></td></tr>";
 	
 		// Save Some Data for Next Iteration
 		if (isset($last_odo)) $last_last_odo = $last_odo;
@@ -291,24 +287,24 @@ if ($filename != "" &&
 	}
 
 	// Print units row / table footer
-	echo "<tr bgcolor=\"#F0F0F0\">"
-		."<td><i>mm/dd/yyyy</i></td>"
+	echo "<tr class=\"units\">"
+		."<td>mm/dd/yyyy</td>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><i>days</i></td>" : "")
-		."<td align=right><i>miles</i></td>"
+			"<td align=right>days</td>" : "")
+		."<td align=right>miles</td>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><i>miles</i></td>" : "")
-		."<td align=right><i>gallons</i></td>"
-		."<td align=right><i>USD</i></td>"
-		."<td align=right><i>USD</i></td>"
+			"<td align=right>miles</td>" : "")
+		."<td align=right>gallons</td>"
+		."<td align=right>USD</td>"
+		."<td align=right>USD</td>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><i>miles</i></td>" : "")
+			"<td align=right>miles</td>" : "")
 		."<td></td>"
 		."<td></td>"
-		."<td><i>yes/no</i></td>"
+		."<td>yes/no</td>"
 		.($_POST['function']=="summary" ?
-			"<td align=right><i>miles/gal</i></td>" : "")
-		.(isset($prnt_rng_avg) ? "<td align=right><i>miles/gal</i></td>" : "")
+			"<td align=right>miles/gal</td>" : "")
+		.(isset($prnt_rng_avg) ? "<td align=right>miles/gal</td>" : "")
 		."</tr>\n";
 
 	echo "</table>\n";
@@ -452,46 +448,44 @@ if (isset($_POST['function']) && $_POST['function'] == "create")
 	   echo "Error: Passwords don't match.<br>\n";
 	 }
 
-       if ( ! file_exists($_POST['filename']) )
+       if ( ! file_exists($varRoot.'/'.$_POST['filename']) )
 	 {
-	   $handle = fopen($_POST['filename'],"x");
+	   $handle = fopen($varRoot.'/'.$_POST['filename'],"x");
 	   $headerstring = "year=".$_POST['year']."&make=".$_POST['make']
 	   ."&model=".$_POST['model']."&owner=".$_POST['owner']."&tanksize="
 	   .$_POST['tanksize']."\n";
 
 	   if (fwrite($handle, $headerstring) === FALSE) {
-	     echo "Cannot write to file (".$_POST['filename'].")";
+	     echo "Cannot write to file (".$varRoot.'/'.$_POST['filename'].")";
 	     exit;
 	   }
 	   
-	   echo "Successfully created data file ".$_POST['filename']."<br>\n";
+	   echo "Successfully created data file ".$varRoot.'/'.$_POST['filename']."<br>\n";
 	   
 	   fclose($handle);
 
 	   // Create a backup copy. Failure of this is not fatal.
-	   if (!copy("./datafiles.txt", "./datafiles.txt~"))
-	     { echo "Failed to create backup.\n"; }
-	   $handle = fopen("./datafiles.txt","r");
-	   $oldstr = rtrim(fgets($handle, 4096));
-	   //$oldstr = substr($oldstr,0,strlen($oldstr)-1);
-	   //$oldstr = rtrim($oldstr);
-	   $oldpasswds = rtrim(fgets($handle, 4096));
-	   fclose($handle);
+		if (!copy($configFile, $configFile."~"))
+			echo "Failed to create backup.\n";
+			
+		readConfigFile($configFile);
+		
+		$configArray['file'][] = $_POST['filename'];
+		$configArray['password'][] = $_POST['password1'];
 
-	   $handle = fopen("./datafiles.txt","w");
-	   if (
-	       (fwrite($handle, $oldstr."&file[]="
-		       .$_POST['filename']."\n") === FALSE)
-	       ||
-	       (fwrite($handle, $oldpasswds."&password[]="
-		       .md5($_POST['password1'])."\n") === FALSE)
-	       )
-	     {
-	       echo "Couldn't add the new file to the list of data files.<br>\n";
-	       exit;
-	     }
+		$handle = fopen("./datafiles.txt","w");
+		if ($handle === false || 
+		fwrite($handle, implode("&",$configArray['file'])."\n")===false ||
+		fwrite($handle, implode("&",$configArray['password'])."\n")===false )
+		{
+			echo "Couldn't add the new file to the list of data files.<br>\n";
+			exit;
+		}
+	     
 	   echo "Successfully added new file to list of data files.<br>\n";
 	   fclose($handle);
+	   
+	   // TODO should switch to 'add record' function at this point.
 	 }
        else { echo "File already exists.<br>\n"; }
      }   
