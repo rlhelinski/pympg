@@ -10,6 +10,7 @@
 <?php
 
 $configFile = "var/datafiles.txt";
+$wfmFileName = "var/fuelstat.wfm";
 $varRoot = "var";
 
 $function_list = array('summary','print','add record',"plot",'create');
@@ -127,6 +128,109 @@ function addRecord ($filename, $record) {
 		echo "The file $filename is not writable";
 	}
 	
+}
+
+function plotWaveform($wfmFileName) {
+	
+	global $recordArray;
+	
+	$descriptorspec = array(
+		0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+		1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+		2 => array("file", "var/gnuplot-stderr.txt", "w") // stderr is a file to write to
+	);
+
+	$cwd = 'var';
+	$env = array();
+//	$env = array('some_option' => 'aeiou');
+
+// Note that we've already changed the working directory to the 
+// variable root!
+	reset($recordArray);
+
+	$programme = "reset\n" .
+			"set style line 1 lt 1 lw 2 pt 1 ps 0.4\n" .
+			"set style line 2 lt 2 lw 2 pt 2 ps 0.4\n" .
+			"set style line 3 lt 3 lw 2 pt 3 ps 0.4\n" .
+			"set style line 4 lt 4 lw 2 pt 4 ps 0.4\n" .
+			"set style line 5 lt 9 lw 5 pt 5 ps 0.4\n" .
+			"set style line 6 lt 7 lw 5 pt 6 ps 0.4\n" .
+			"set style line 7 lt 8 lw 5 pt 9 ps 0.4\n" .
+			"set style line 8 lt 5 lw 5 pt 5 ps 0.4\n" .
+			"set style line 9 lt -1 lw 5 pt 7 ps 0.4\n" .
+			"set style line 10 lt 0 lw 15 pt 4 ps 0.6\n" .
+			"set terminal png small\n" .
+			"set size 0.8, 0.8\n" .
+			"set autoscale\n" .
+			"set origin 0,0\n" .
+			"set output 'mpg.png'\n" .
+			"set title 'Gas Mileage Statistics (plotted ".date("r").")'\n" .
+			"set multiplot\n" .
+//			"set label 1 \"".date("U")."\"\n" .
+			"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
+			"set ylabel 'Miles/Gallon' tc lt 1\n" .
+			"set y2label 'Miles/Day' tc lt 2\n" .
+//			"set autoscale x\n" .
+			"set xdata time\n" .
+			"set timefmt '%s'\n" . # seconds since UNIX Epoch
+			"set xtics rotate by 90\n" .
+//			"set autoscale y\n" .
+			"set ytics nomirror tc lt 1\n" .
+//			"set ytics tc lt 1\n" .
+//			"set autoscale y2\n" .
+			"set y2tics\n" .
+//			"set label 1 at \"1152936000\",32\n" .
+//			"set label 1 \"These examples require no extra fonts:\" tc lt 3\n" .
+			"plot " .
+			"'fuelstat.wfm' using 1:7 title 'Gas Mileage (mi/gal)' " .
+			"with lines linestyle 1 axes x1y1, " .
+			"'fuelstat.wfm' using 1:6 title 'Average Velocity (mi/day)' " .
+			" with lines linestyle 2 axes x1y2 " .
+			"\n" .
+			"unset multiplot\n" .
+			"set output 'fuelcost.png'\n" .
+			"set title 'Fuel Cost Statistics (plotted ".date("r").")'\n" .
+			"set multiplot\n" .
+//			"set xlabel 'Date'\n" .
+			"set xlabel 'Date (".$recordArray[0]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
+			"set ylabel 'Dollars/Gallon'\n" .
+			"set y2label 'Dollars/Tank'\n" .
+			"plot " .
+			"'fuelstat.wfm' using 1:4 title 'Fuel Cost (dollars/gal)' " .
+			"with lines linestyle 1 axes x1y1," .
+			"'fuelstat.wfm' using 1:5 title 'Tank Cost (dollars/tank)' " .
+			"with lines linestyle 2 axes x1y2" .
+			"\n";
+
+//	echo "<pre>".$programme."</pre>\n";
+	
+	$process = proc_open('gnuplot', $descriptorspec, $pipes, $cwd, $env);
+
+	if (is_resource($process)) {
+		// $pipes now looks like this:
+		// 0 => writeable handle connected to child stdin
+		// 1 => readable handle connected to child stdout
+		// Any error output will be appended to /tmp/error-output.txt
+	
+		fwrite($pipes[0], $programme);
+		fclose($pipes[0]);
+	
+		echo "<pre>";
+		echo stream_get_contents($pipes[1]);
+		echo "</pre>\n";
+		fclose($pipes[1]);
+	
+		// It is important that you close any pipes before calling
+		// proc_close in order to avoid a deadlock
+		$return_value = proc_close($process);
+	
+//		echo "command returned $return_value\n";
+	} else {
+		echo "Couldn't open pipe to GNUPLOT.";
+		exit;
+	}
+	
+
 }
 
 // SUMMARY / PRINT CODE
@@ -514,11 +618,11 @@ if (isset($_POST['function']) && $_POST['function'] == "create")
 // WRITE WAVEFORM AND PLOT CODE
 if (isset($_POST['function']) && $_POST['function'] == "plot")
   {
-    $wfmFileName = "fuelstat.wfm";
     if (($wfmHandle = fopen($wfmFileName,"w"))!==FALSE)
       {
-	if (($dataHandle = fopen($filename, "r"))!==FALSE)
+	if (file_exists($varRoot.'/'.$filename))
 	  {
+		readDataFile($filename);
 
 	    #echo "<pre>";
 	    $heading = "# time\t\tmiles\tgals\t$/gal\t$/tank\tmi/day\tmpg\n";
@@ -527,48 +631,43 @@ if (isset($_POST['function']) && $_POST['function'] == "plot")
 	    if (fwrite ( $wfmHandle, $heading )===FALSE)
 		echo "I/O error.\n";
 
-	    // Read line with car data
-	    $buffer = fgets($dataHandle, 4096);
-	    parse_str($buffer);
+      echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Records</h1>\n";
 
-      echo "<h1>".$make." ".$model." Gas Mileage Records</h1>\n";
-
-      echo "<p>Data File Name: <span class=\"code\">";
+      echo "<p>Data File Name: <tt>";
       if ($_POST['function'] != "print")
         echo "<a href=\"".$filename."\">".$filename."</a>";
       else echo $filename;
-      echo "</span>, Report Format: <b>Data Waveforms</b>"
+      echo "</tt>, Report Format: <b>Data Waveforms</b>"
         ."</p>\n";
 
-      echo "<p>Year: <b>".$year."</b>, Make: <b>".$make."</b>, Model: <b>"
-        .$model."</b>, Owner: <b>".$owner . "</b>, Tank Size: <b>".$tanksize
-        ."</b></p>\n";
+      echo "<p>Year: <b>".$carArray['year']."</b>, Make: <b>".$carArray['make']
+      	."</b>, Model: <b>".$carArray['model']."</b>, Owner: <b>".$carArray['owner']
+      	."</b>, Tank Size: <b>".$carArray['tanksize']."</b></p>\n";
 
-	    while (!feof($dataHandle)) {
+	echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>";
+
+//	    while (!feof($dataHandle)) {
+		foreach ($recordArray as $record) 
+		{
 	      $records = $records + 1;
-
-	      $buffer = fgets($dataHandle, 4096);
-	      if ( $buffer == "" ) break;
-	
-	      parse_str($buffer);
 
 	      if ($records > 1)
 		{ 
-		  $travelled = $odo - $last_odo;
-		  $mpg = ($odo-$last_odo)/$gals;
-		  $time_elap = strtotime($date) - strtotime($last_date);
+		  $travelled = $record['odo'] - $last_odo;
+		  $mpg = ($record['odo']-$last_odo)/$record['gals'];
+		  $time_elap = strtotime($record['date']) - strtotime($last_date);
 		  $days_elap = round ($time_elap / 86400);
-		  $tank_cost = round($price*$gals,2);
+		  $tank_cost = round($record['price']*$record['gals'],2);
 		  
 		  
 		  // Print Waveforms
 
 		  $fileLine = 
 #		    round((strtotime($date)-$starttime)/86400,1)."\t\t"
-		    round(strtotime($date))."\t"
+		    round(strtotime($record['date']))."\t"
 		    .$travelled."\t"
-		    .$gals."\t"
-		    .$price."\t"
+		    .$record['gals']."\t"
+		    .$record['price']."\t"
 		    .$tank_cost."\t"
 		    .round($travelled/$days_elap,3)."\t"
 		    .round($mpg,3)."\n";
@@ -584,21 +683,22 @@ if (isset($_POST['function']) && $_POST['function'] == "plot")
 		  
 		}
 	      else {
-		$starttime = strtotime($date);
+		$starttime = strtotime($record['date']);
 	      }
 
-	      $last_odo = $odo;
-	      $last_date = $date;
+	      $last_odo = $record['odo'];
+	      $last_date = $record['date'];
 	    }
 
 	    #echo "</pre>";
 	    fclose($wfmHandle);
-	    fclose($dataHandle);
+//	    fclose($dataHandle);
 
-	    echo system("gnuplot plot.gp");
+//	    echo system("gnuplot plot.gp");
+		plotWaveform($wfmFileName);
 	    
-	    echo "<img src=\"mpg.png\" alt=\"Gas Mileage\">\n";
-            echo "<img src=\"fuelcost.png\" alt=\"Fuel Cost\">\n";
+	    echo "<img src=\"var/mpg.png\" alt=\"Gas Mileage\">\n";
+            echo "<img src=\"var/fuelcost.png\" alt=\"Fuel Cost\">\n";
 
 	    ##echo "<p><a href=\"mpg.eps\">mpg.eps</a></p>\n";
 	  }
