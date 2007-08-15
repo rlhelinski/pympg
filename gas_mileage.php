@@ -199,11 +199,6 @@ function plotWaveform($wfmFileName) {
 	$process = proc_open('gnuplot', $descriptorspec, $pipes, $cwd, $env);
 
 	if (is_resource($process)) {
-		// $pipes now looks like this:
-		// 0 => writeable handle connected to child stdin
-		// 1 => readable handle connected to child stdout
-		// Any error output will be appended to /tmp/error-output.txt
-	
 		fwrite($pipes[0], $programme);
 		fclose($pipes[0]);
 	
@@ -216,7 +211,7 @@ function plotWaveform($wfmFileName) {
 		// proc_close in order to avoid a deadlock
 		$return_value = proc_close($process);
 	
-//		echo "command returned $return_value\n";
+		echo "<!-- GNUPLOT returned $return_value -->\n";
 	} else {
 		echo "Couldn't open pipe to GNUPLOT.";
 		exit;
@@ -237,7 +232,7 @@ if ($filename != "" &&
 
 	echo "<p>Data File Name: <tt>";
 	if ($_POST['function'] != "print")
-		echo "<a href=\"".$filename."\">".$filename."</a>";
+		echo "<a href=\"".$varRoot.'/'.$filename."\">".$filename."</a>";
 	else 
 		echo $filename;
 
@@ -627,7 +622,7 @@ if (isset($_POST['function']) && $_POST['function'] == "plot")
 
       echo "<p>Data File Name: <tt>";
       if ($_POST['function'] != "print")
-        echo "<a href=\"".$filename."\">".$filename."</a>";
+        echo "<a href=\"".$varRoot.'/'.$filename."\">".$filename."</a>";
       else echo $filename;
       echo "</tt>, Report Format: <b>Data Waveforms</b>"
         ."</p>\n";
