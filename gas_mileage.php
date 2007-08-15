@@ -166,21 +166,14 @@ function plotWaveform($wfmFileName) {
 			"set output 'mpg.png'\n" .
 			"set title 'Gas Mileage Statistics (plotted ".date("r").")'\n" .
 			"set multiplot\n" .
-//			"set label 1 \"".date("U")."\"\n" .
 			"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
 			"set ylabel 'Miles/Gallon' tc lt 1\n" .
 			"set y2label 'Miles/Day' tc lt 2\n" .
-//			"set autoscale x\n" .
 			"set xdata time\n" .
 			"set timefmt '%s'\n" . # seconds since UNIX Epoch
 			"set xtics rotate by 90\n" .
-//			"set autoscale y\n" .
 			"set ytics nomirror tc lt 1\n" .
-//			"set ytics tc lt 1\n" .
-//			"set autoscale y2\n" .
 			"set y2tics\n" .
-//			"set label 1 at \"1152936000\",32\n" .
-//			"set label 1 \"These examples require no extra fonts:\" tc lt 3\n" .
 			"plot " .
 			"'fuelstat.wfm' using 1:7 title 'Gas Mileage (mi/gal)' " .
 			"with lines linestyle 1 axes x1y1, " .
@@ -191,7 +184,6 @@ function plotWaveform($wfmFileName) {
 			"set output 'fuelcost.png'\n" .
 			"set title 'Fuel Cost Statistics (plotted ".date("r").")'\n" .
 			"set multiplot\n" .
-//			"set xlabel 'Date'\n" .
 			"set xlabel 'Date (".$recordArray[0]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
 			"set ylabel 'Dollars/Gallon'\n" .
 			"set y2label 'Dollars/Tank'\n" .
