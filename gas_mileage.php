@@ -184,7 +184,7 @@ function plotWaveform($wfmFileName) {
 			"set output 'fuelcost.png'\n" .
 			"set title 'Fuel Cost Statistics (plotted ".date("r").")'\n" .
 			"set multiplot\n" .
-			"set xlabel 'Date (".$recordArray[0]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
+			"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
 			"set ylabel 'Dollars/Gallon'\n" .
 			"set y2label 'Dollars/Tank'\n" .
 			"plot " .
@@ -572,7 +572,7 @@ if (isset($_POST['function']) && $_POST['function'] == "create")
 		foreach ($configArray['file'] as $file)
 			$fileArray[] = "file[]=".$file;
 		foreach ($configArray['password'] as $password)
-			$passArray[] = "password[]=".$password;
+			$passArray[] = "password[]=".md5($password);
 
 		$handle = fopen($configFile,"w");
 		if ($handle === false || 
