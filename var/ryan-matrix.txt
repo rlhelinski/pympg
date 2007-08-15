@@ -37,3 +37,6 @@ date=06/05/2007&odo=9963&gals=10.602&price=2.999&loc=Abingdon&name=Wawa&topd=Yes
 date=06/15/2007&odo=10251&gals=10.063&price=2.999&loc=Aviation Blvd&name=Shell&topd=Yes&note=
 date=06/27/2007&odo=10523&gals=9.746&price=2.959&loc=Aviation Blvd&name=Shell&topd=Yes&note=
 date=07/10/2007&odo=10819&gals=10.527&price=2.979&loc=MVA Shell&name=Shell&topd=Yes&note=
+date=07/20/2007&odo=11147&gals=10.309&price=2.899&loc=Aviation.Blvd.Shell&name=Shell&topd=Yes&note=Lost+Found
+date=08/04/2007&odo=11400&gals=9.616&price=2.819&loc=7408+Baltimore+Ann.&name=Shell&topd=Yes&note=
+date=08/11/2007&odo=11663&gals=9.382&price=2.639&loc=Denton Goose Creek&name=Exxon&topd=Yes
