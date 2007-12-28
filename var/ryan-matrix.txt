@@ -40,3 +40,17 @@ date=07/10/2007&odo=10819&gals=10.527&price=2.979&loc=MVA Shell&name=Shell&topd=
 date=07/20/2007&odo=11147&gals=10.309&price=2.899&loc=Aviation.Blvd.Shell&name=Shell&topd=Yes&note=Lost+Found
 date=08/04/2007&odo=11400&gals=9.616&price=2.819&loc=7408+Baltimore+Ann.&name=Shell&topd=Yes&note=
 date=08/11/2007&odo=11663&gals=9.382&price=2.639&loc=Denton Goose Creek&name=Exxon&topd=Yes
+date=08%2F24%2F2007&odo=11934&gals=9.124&price=2.759&loc=Aviation+Blvd&name=Shell&topd=Yes&note=
+date=09%2F07%2F2007&odo=12227&gals=10.180&price=2.699&loc=Timonium&name=Texaco&topd=Yes&note=
+date=09%2F17%2F2007&odo=12526&gals=10.450&price=2.719&loc=Aviation+Blvd&name=Shell&topd=Yes&note=
+date=09%2F29%2F2007&odo=12781&gals=9.391&price=2.599&loc=Glen+Burnie&name=MVA+Shell&topd=Yes&note=
+date=10%2F13%2F2007&odo=13088&gals=10.623&price=2.599&loc=Catonsville&name=Texaco&topd=Yes&note=
+date=10%2F31%2F2007&odo=13387&gals=10.465&price=2.879&loc=Aviation+Blvd&name=Shell&topd=Yes&note=
+date=11%2F08%2F2007&odo=13700&gals=10.651&price=2.979&loc=Wilkens+Ave&name=Chevron&topd=Yes&note=
+date=11%2F15%2F2007&odo=14005&gals=10.436&price=3.179&loc=Security+Blvd&name=BP&topd=Yes&note=
+date=11%2F21%2F2007&odo=14305&gals=10.557&price=3.049&loc=Frederick+Rd&name=BP&topd=Yes&note=
+date=11%2F30%2F2007&odo=14616&gals=10.448&price=2.959&loc=Hanover&name=Exxon&topd=Yes&note=
+date=12%2F06%2F2007&odo=14868&gals=9.174&price=2.999&loc=Owings+Mills&name=Exxon&topd=Yes&note=
+date=12%2F16%2F2007&odo=15139&gals=9.783&price=2.979&loc=Owing+Mills&name=Valley+BP&topd=Yes&note=
+date=12%2F22%2F2007&odo=15409&gals=9.705&price=2.859&loc=Owings+Mills&name=Sunoco&topd=Yes&note=
+date=12%2F26%2F2007&odo=15711&gals=10.196&price=2.899&loc=Arundel+Mills&name=Exxon&topd=Yes&note=
