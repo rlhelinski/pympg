@@ -1,5 +1,5 @@
 set terminal png small #size 640,480
-set output './mpg.png'
+set output './var/mpg.png'
 set size 0.8, 0.8
 
 set style line 1 lt 1 lw 2 pt 1 ps 0.4
@@ -33,12 +33,12 @@ set autoscale y2
 set y2tics
 
 plot \
- "./fuelstat.wfm" using 1:7 title "Gas Mileage (mi/gal)"  with lines linestyle 1 axes x1y1,\
- "./fuelstat.wfm" using 1:6 title "Velocity (mi/day)"  with lines linestyle 2 axes x1y2
+ "./var/fuelstat.wfm" using 1:7 title "Gas Mileage (mi/gal)"  with lines linestyle 1 axes x1y1,\
+ "./var/fuelstat.wfm" using 1:6 title "Velocity (mi/day)"  with lines linestyle 2 axes x1y2
 
 unset multiplot
 set terminal png small #size 640,480
-set output './fuelcost.png'
+set output './var/fuelcost.png'
 
 set title "Fuel Cost Statistics" #font "Times-Roman,26"
 
@@ -49,5 +49,5 @@ set ylabel "Dollars / Gallon" #font "Times-Italic,22"
 set y2label "Dollars / Tank" #font "Times-Italic,22"
 
 plot \
- "./fuelstat.wfm" using 1:4 title "Fuel Cost ($/gal)"  with lines linestyle 1 axes x1y1,\
- "./fuelstat.wfm" using 1:5 title "Tank Cost ($/tank)"  with lines linestyle 2 axes x1y2
+ "./var/fuelstat.wfm" using 1:4 title "Fuel Cost ($/gal)"  with lines linestyle 1 axes x1y1,\
+ "./var/fuelstat.wfm" using 1:5 title "Tank Cost ($/tank)"  with lines linestyle 2 axes x1y2
