@@ -21,6 +21,8 @@ class pgmdb {
 	private $configArray = array();
 	private $carArray = array();
 	private $recordArray = array();
+	private $completeArray = array();
+	private $globalStats = array();
 	
 	function readConfigFile($fileName) {
 		$newArray = array();
@@ -195,52 +197,33 @@ class pgmdb {
 	}
 		
 	// TODO this function needs to be broken up into FOUR:
-	// first, produce a big table from the input table
+	// V first, produce a big table from the input table
 	// then create a function to produce the summary table
 	// function to produce the print table
 	// function to produce the summary and statistics
-		
-	// SUMMARY / PRINT CODE
-	function print_summary () {
+
+	// PROCESS RECORDS TO EXPAND DATA
+	function process_records () {
 		global $varRoot;
-	    # We only read the file here
+
+	    # We read the file here
 		$this->readDataFile($_POST['datafile']);
 
-		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
+		# Create references for easy access
+		$global_gals = &$this->globalStats['gals'];
+		$global_miles = &$this->globalStats['miles'];
+		$global_cost = &$this->globalStats['cost'];
+		$global_days = &$this->globalStats['days'];
+		$max_range = &$this->globalStats['max_range'];
+		$min_mpg = &$this->globalStats['min_mpg'];
+		$max_mpg = &$this->globalStats['max_mpg'];
+		$last_last_odo = &$this->globalStats['last_last_odo'];
+		$last_odo = &$this->globalStats['last_odo'];
+		$last_date = &$this->globalStats['last_date'];
+		$last_gals = &$this->globalStats['last_gals'];
+		$last_topd = &$this->globalStats['last_topd'];
 		
-
-		$this->print_vehicle_info();
-
-		if (count($this->recordArray)==0) {
-			echo "<p>This file contains no records. Please use the 'record'" .
-					" function and add at least two fuel records.</p>\n";
-			return;
-		}
-		
-		echo "<table class=\"summary\">\n";
-	
-		// Print Heading Row
-		echo "<tr>"
-			."<th><b>Date</b></th>"
-			.($_POST['function']=="summary" ?
-				"<th align=right><b>Days</b></th>" : "")
-			."<th align=right><b>Odo.</b></th>"
-			.($_POST['function']=="summary" ?
-				"<th align=right><b>Trvl'd</b></th>" : "")
-			."<th align=right><b>Gallons</b></th>"
-			."<th align=right><b>$/gal</b></th>"
-			."<th align=right><b>cost</b></th>"
-			.($_POST['function']=="summary" ?
-				"<th align=right><b>mi/day</b></th>" : "")
-			."<th><b>Location</b></th>"
-			."<th><b>Station</b></th>"
-			."<th><b>Filled?</b></th>"
-			.($_POST['function']=="summary" ? 
-				"<th align=right><b>Miles/Gal</b></th>" : "")
-			.(isset($prnt_rng_avg) ? "<th align=right><b>Rng.Avg.</b></th>" : "")
-			."</tr>\n";
-	
-		
+		# Initialize global stat variables
 		$global_gals = 0;
 		$global_miles = 0;
 		$global_cost = 0;
@@ -253,13 +236,8 @@ class pgmdb {
 
 		foreach ($this->recordArray as $record)
 		{
-			$records = $records + 1;
-	
-			if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
-	//			$opts = "bgcolor=\"#ffffb0\"";
-				$opts = " class=\"odd\"";
-			else
-				$opts = "";
+			$records++;
+
 			// Update global stats
 			if ($records > 0)
 			{
@@ -295,59 +273,27 @@ class pgmdb {
 			  $mpg = 0;
 			}
 	
-			// Print Table Row
-			echo "<tr$opts>"
-			."<td>".$record['date']
-			.($_POST['function'] == "summary" && 
-				isset($record['note']) && chop($record['note']) != "" ? 
-				" <img src=\"fat_pen.png\" alt=\"note\" title=\""
-				.chop($record['note'])."\">" : "" )
-			."</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>".$days_elap."</td>" : "")
-			."<td align=right>".number_format($record['odo'])."</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>".$travelled."</td>" : "")
-			."<td align=right>".number_format($record['gals'],3)."</td>"
-			."<td align=right>".number_format($record['price'],3)."</td>"
-			."<td align=right>".number_format($tank_cost,2)."</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>".number_format($miles_per_day,2)."</td>"
-				: "")
-			."<td>".$record['loc']."</td>"
-			."<td>".$record['name']."</td>"
-			."<td>".$record['topd']."</td>";
-		
-			if ($_POST['function']=="summary") {
-				if (isset($last_topd) && $record['topd'][0] == "Y" && $last_topd != "") { 
-					echo "<td align=right>".number_format($mpg,1)."</td>"; }
-				else { 
-					echo "<td align=right>(".number_format($mpg,1).")</td>"; 
-				}
-			}
-		
-			if (isset($prnt_rng_avg))
-			{
-				if ($gals+$last_gals > 0)
-					$rng_avg = number_format(($odo-$last_last_odo)/($gals+$last_gals),1);
-				else 
-					$rng_avg = "N/A";
-			
-		
-				if ($last_last_odo != "" && $topd{0} == "Y" && $last_topd{0} == "Y" ) {
-					echo "<td align=right>".$rng_avg."</td>";
-				} else { 
-					echo "<td align=right>(".$rng_avg.")</td>"; 
-				}
-			}
-			echo "</tr>\n";
-		
-			// In the printer-friendly case, print a row with the note on file
-			if ($_POST['function']=="print" && isset($record['note']) && 
-				chop($record['note']) != "")
-				#echo "<tr><td><i>Note -></i></td><td colspan=7><i>"
-				echo "<tr><td></td><td colspan=7><i>"
-				.chop($record['note'])."</i></td></tr>";
+			// Add array element
+			$this->completeArray[] = array (
+				"date" => $record['date'],
+				"note" => (isset($record['note'])?chop($record['note']):""),
+				"days_elap" => $days_elap,
+				"odo" => $record['odo'],
+				"travelled" => $travelled,
+				"gals" => $record['gals'],
+				"price" => $record['price'],
+				"tank_cost" => $tank_cost,2,
+				"miles_per_day" => $miles_per_day,
+				"loc" => chop($record['loc']),
+				"name" => chop($record['name']),
+				"topd" => chop($record['topd']),
+				"mpg" => $mpg,
+				"mpg_rng_avg" => (
+					isset($last_gals) && isset($odo) && isset($last_last_odo) &&  
+					($record['gals']+$last_gals > 0) ? 
+					($odo-$last_last_odo)/($record['gals']+$last_gals) :
+					"N/A" )
+			);
 		
 			// Save Some Data for Next Iteration
 			if (isset($last_odo)) $last_last_odo = $last_odo;
@@ -355,31 +301,207 @@ class pgmdb {
 			$last_date = $record['date'];
 			$last_gals = $record['gals'];
 			$last_topd = $record['topd'];
+		} // end foreach
+		
+//		echo "<pre>";
+//		print_r($this->completeArray);
+//		print_r($this->globalStats);
+//		echo "</pre>";
+	}
+		
+	// PRINT DETAILED RECORD CODE
+	function print_summary () {
+		global $varRoot;
+		$records = -1;
+		
+	    # Call to produce the big table
+		$this->process_records();
+
+		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
+		
+		$this->print_vehicle_info();
+
+		if (count($this->recordArray)==0) {
+			echo "<p>This file contains no records. Please use the 'record'" .
+					" function and add at least two fuel records.</p>\n";
+			return;
+		}
+		
+		echo "<table class=\"summary\">\n";
+		
+		// Print Heading Row
+		echo "<tr>"
+			."<th><b>Date</b></th>"
+			."<th align=right><b>Days</b></th>"
+			."<th align=right><b>Odo.</b></th>"
+			."<th align=right><b>Trvl'd</b></th>"
+			."<th align=right><b>Gallons</b></th>"
+			."<th align=right><b>$/gal</b></th>"
+			."<th align=right><b>cost</b></th>"
+			."<th align=right><b>mi/day</b></th>"
+			."<th><b>Location</b></th>"
+			."<th><b>Station</b></th>"
+			."<th><b>Filled?</b></th>"
+			."<th align=right><b>Miles/Gal</b></th>"
+			.(isset($prnt_rng_avg) ? "<th align=right><b>Rng.Avg.</b></th>" : "")
+			."</tr>\n";
+		
+		foreach ($this->completeArray as $record)
+		{
+			$records = $records + 1;
+	
+			if ( $records % 2 == 1 && $_POST['function'] != "print" ) 
+				$opts = " class=\"odd\"";
+			else
+				$opts = "";
+
+			// Print Table Row
+			echo "<tr$opts>"
+				."<td>".$record['date']
+				.(isset($record['note']) && chop($record['note']) != "" ? 
+					" <img src=\"fat_pen.png\" alt=\"note\" title=\""
+					.chop($record['note'])."\">" : "" )
+				."</td>"
+				."<td align=right>".$record['days_elap']."</td>"
+				."<td align=right>".number_format($record['odo'])."</td>"
+				."<td align=right>".$record['travelled']."</td>"
+				."<td align=right>".number_format($record['gals'],3)."</td>"
+				."<td align=right>".number_format($record['price'],3)."</td>"
+				."<td align=right>".number_format($record['tank_cost'],2)."</td>"
+				."<td align=right>".number_format($record['miles_per_day'],2)."</td>"
+				."<td>".$record['loc']."</td>"
+				."<td>".$record['name']."</td>"
+				."<td>".$record['topd']."</td>"
+				."<td align=right>".number_format($record['mpg'],1)."</td>"
+				;
+		
+			if (isset($prnt_rng_avg))
+				echo "<td align=right>".$record['rng_avg']."</td>";
+
+			echo "</tr>\n";
+		
 		}
 	
 		// Print units row / table footer
 		echo "<tr class=\"units\">"
 			."<td>mm/dd/yyyy</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>days</td>" : "")
+			."<td align=right>days</td>"
 			."<td align=right>miles</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>miles</td>" : "")
+			."<td align=right>miles</td>"
 			."<td align=right>gallons</td>"
 			."<td align=right>USD</td>"
 			."<td align=right>USD</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>miles</td>" : "")
+			."<td align=right>miles</td>"
 			."<td></td>"
 			."<td></td>"
 			."<td>yes/no</td>"
-			.($_POST['function']=="summary" ?
-				"<td align=right>miles/gal</td>" : "")
+			."<td align=right>miles/gal</td>"
 			.(isset($prnt_rng_avg) ? "<td align=right>miles/gal</td>" : "")
 			."</tr>\n";
 	
 		echo "</table>\n";
 	
+		
+		
+	}
+
+
+	// PRINT PRINTER-FRIENDLY RECORD CODE
+	function print_friendly_records () {
+		global $varRoot;
+		$records = -1;
+		
+	    # Call to produce the big table
+		$this->process_records();
+
+		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
+		
+		$this->print_vehicle_info();
+
+		if (count($this->recordArray)==0) {
+			echo "<p>This file contains no records. Please use the 'record'" .
+					" function and add at least two fuel records.</p>\n";
+			return;
+		}
+		
+		echo "<table border=\"1\">\n";
+		
+		// Print Heading Row
+		echo "<tr>"
+			."<th><b>Date</b></th>"
+			."<th align=right><b>odo.</b></th>"
+			."<th align=right><b>gal</b></th>"
+			."<th align=right><b>$/gal</b></th>"
+			."<th align=right><b>cost</b></th>"
+			."<th><b>Location</b></th>"
+			."<th><b>Station</b></th>"
+			."<th><b>Fill?</b></th>"
+			."<th><b>MPG</b></th>"
+			."</tr>\n";
+		
+		foreach ($this->completeArray as $record)
+		{
+			// Print Table Row
+			echo "<tr>"
+				."<td>".$record['date']."</td>"
+				."<td align=right>".number_format($record['odo'])."</td>"
+				."<td align=right>".number_format($record['gals'],3)."</td>"
+				."<td align=right>".number_format($record['price'],3)."</td>"
+				."<td align=right>".number_format($record['tank_cost'],2)."</td>"
+				."<td>".$record['loc']."</td>"
+				."<td>".$record['name']."</td>"
+				."<td>".$record['topd']."</td>"
+				."<td align=right>".number_format($record['mpg'],1)."</td>"
+				;
+		
+			echo "</tr>\n";
+		
+			// In the printer-friendly case, print a row with the note on file
+			if (isset($record['note']) && chop($record['note']) != "")
+				echo "<tr><td></td><td colspan=8><i>"
+					.chop($record['note'])."</i></td></tr>";
+		
+		}
+	
+		// Print units row / table footer
+		echo "<tr class=\"units\">"
+			."<td>mm/dd/yyyy</td>"
+			."<td align=right>miles</td>"
+			."<td align=right>gallons</td>"
+			."<td align=right>USD</td>"
+			."<td align=right>USD</td>"
+			."<td></td>"
+			."<td></td>"
+			."<td>yes/no</td>"
+			."<td>MPG</td>"
+			."</tr>\n";
+		
+	
+		echo "</table>\n";
+	
+		
+		
+	}
+
+
+	// PRINT GAS MILEAGE SUMMARY
+	function print_stats_summary () {
+		# Create references for easy access
+		$global_gals = &$this->globalStats['gals'];
+		$global_miles = &$this->globalStats['miles'];
+		$global_cost = &$this->globalStats['cost'];
+		$global_days = &$this->globalStats['days'];
+		$max_range = &$this->globalStats['max_range'];
+		$min_mpg = &$this->globalStats['min_mpg'];
+		$max_mpg = &$this->globalStats['max_mpg'];
+		$records = count($this->recordArray);
+		$last_last_odo = &$this->globalStats['last_last_odo'];
+		$last_odo = &$this->globalStats['last_odo'];
+		$last_date = &$this->globalStats['last_date'];
+		$last_gals = &$this->globalStats['last_gals'];
+		$last_topd = &$this->globalStats['last_topd'];
+		
+		
 		echo "<h2>Gas Mileage Summary</h2>\n";
 		
 		echo "<table class=\"summary\">\n"
@@ -393,8 +515,25 @@ class pgmdb {
 			."</table>\n"
 			;
 		
+	} 
 	
-	
+	// PRINT GAS MILEAGE STATISTICS
+	function print_stats_detailed () {
+		# Create references for easy access
+		$global_gals = &$this->globalStats['gals'];
+		$global_miles = &$this->globalStats['miles'];
+		$global_cost = &$this->globalStats['cost'];
+		$global_days = &$this->globalStats['days'];
+		$max_range = &$this->globalStats['max_range'];
+		$min_mpg = &$this->globalStats['min_mpg'];
+		$max_mpg = &$this->globalStats['max_mpg'];
+		$records = count($this->recordArray);
+		$last_last_odo = &$this->globalStats['last_last_odo'];
+		$last_odo = &$this->globalStats['last_odo'];
+		$last_date = &$this->globalStats['last_date'];
+		$last_gals = &$this->globalStats['last_gals'];
+		$last_topd = &$this->globalStats['last_topd'];
+		
 		echo "<h2>Detailed Statistics</h2>\n"
 			."Latest Gas Mileage: <b>".round(($last_odo-$last_last_odo)/$last_gals,2)."</b> mpg<br>\n"
 			."Minimum Gas Mileage: <b>".round($min_mpg,1)."</b> miles/gallon<br>\n"
@@ -433,8 +572,6 @@ class pgmdb {
 			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($last_date))."</b><br>\n"
 	      	."</blockquote>\n"
 	      	;
-		
-		
 	}
 	
 	// ADD RECORD CODE
@@ -630,8 +767,9 @@ class pgmdb {
 	      {
 			if (file_exists($varRoot.'/'.$_POST['datafile']))
 			  {
-				$this->readDataFile($_POST['datafile']);
-				
+//				$this->readDataFile($_POST['datafile']);
+				$this->process_records();
+								
 				echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Trends</h2>\n";
 				
 				$this->print_vehicle_info();

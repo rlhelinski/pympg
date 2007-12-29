@@ -42,6 +42,12 @@ if (isset($_POST['function'])) {
 	switch ($_POST['function']) {
 		case "summary":
 			$gasMileage->print_summary();
+			$gasMileage->print_stats_summary();
+			$gasMileage->print_stats_detailed();
+			
+			break;
+		case "print":
+			$gasMileage->print_friendly_records();
 			break;
 		case "plot":
 			$gasMileage->display_waveform();
@@ -51,6 +57,9 @@ if (isset($_POST['function'])) {
 			break;
 		case "create":
 			$gasMileage->print_new_file_form();
+			break;
+		case "test":
+			$gasMileage->process_records();
 			break;
 		default:
 			die ("Invalid function ".$_POST['function']);
