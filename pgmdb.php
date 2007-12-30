@@ -10,7 +10,6 @@
  
 class pgmdb {
 	
-	
 	private $function_list = array('summary','print','record','plot','create');
 	
 	private $functionDesc = array (
@@ -174,7 +173,7 @@ class pgmdb {
 	
 	//	echo "<pre>".$programme."</pre>\n";
 		
-		$process = proc_open('gnuplot', $descriptorspec, $pipes, $cwd, $env);
+		$process = proc_open($GLOBALS['gnuplot_path'], $descriptorspec, $pipes, $cwd, $env);
 	
 		if (is_resource($process)) {
 			fwrite($pipes[0], $programme);
