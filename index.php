@@ -31,6 +31,7 @@ foreach ($_GET as $key => $val) {
 <hr>
 
 <div id="content">
+
 <?php
 if (isset($_POST['function'])) {
 
@@ -68,7 +69,7 @@ if (isset($_POST['function'])) {
 ?>
 </div>
 <hr>
-<div id="footnote">PHP Gas Mileage Database, by Ryan Helinski.
+<div id="footer">PHP Gas Mileage Database, by Ryan Helinski.
 <?php 
 list($end_usec, $end_sec) = explode(" ", microtime());
 

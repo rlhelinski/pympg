@@ -3,12 +3,29 @@ DIV {
 	border: 1px solid #eee;
 }
 
+DIV.notice {
+	background-color: #80ff80;
+	padding: 0.5em;
+	margin: 0.5em;
+}
+
+DIV.alert {
+	background-color: #ff8080;
+	padding: 0.5em;
+	margin: 0.5em;	
+}
+
+DIV#footer {
+	font-size: 10pt;
+	
+}
+
 PRE {
    font-size: 10pt;
- }
+}
    
 TT {
-     font-size: 10pt;
+	font-size: 10pt;
 }
    
 TABLE TH {

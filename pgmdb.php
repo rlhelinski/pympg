@@ -569,7 +569,6 @@ class pgmdb {
 			.round($days_to_service)
 			."</b> days, on or before <b>"
 			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($last_date))."</b><br>\n"
-	      	."</blockquote>\n"
 	      	;
 	}
 	
