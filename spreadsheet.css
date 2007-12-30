@@ -1,4 +1,7 @@
 /* Note this isn't currently used */
+DIV {
+	border: 1px solid #eee;
+}
 
 PRE {
    font-size: 10pt;
