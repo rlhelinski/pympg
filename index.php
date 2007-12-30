@@ -6,7 +6,7 @@ list($begin_usec, $begin_sec) = explode(" ", microtime());
 include("localSettings.php");
 include("pgmdb.php");
 
-# Initialize the database access engine
+# Initialize the statistics and data engine
 $gasMileage = new pgmdb();
 
 # Transform GET arguments to POST arguments for flexibility
@@ -19,11 +19,6 @@ foreach ($_GET as $key => $val) {
 <head>
 <title>PHP Gas Mileage Database</title>
 <link rel="stylesheet" type="text/css" href="spreadsheet.css">
-<style type="text/css">
-	DIV {
-		border: 1px solid #eee;
-	}
-</style>
 </head>
 <body>
 
@@ -35,7 +30,7 @@ foreach ($_GET as $key => $val) {
 <?php $gasMileage->print_function_chooser(); ?>
 <hr>
 
-<div>
+<div id="content">
 <?php
 if (isset($_POST['function'])) {
 
@@ -73,7 +68,7 @@ if (isset($_POST['function'])) {
 ?>
 </div>
 <hr>
-<div class="footnote">PHP Gas Mileage Database, by Ryan Helinski.
+<div id="footnote">PHP Gas Mileage Database, by Ryan Helinski.
 <?php 
 list($end_usec, $end_sec) = explode(" ", microtime());
 
