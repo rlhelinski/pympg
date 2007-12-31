@@ -141,9 +141,9 @@ class pgmdb {
 				"set autoscale\n" .
 				"set origin 0,0\n" .
 				"set output 'mpg.png'\n" .
-				"set title 'Gas Mileage Statistics (plotted ".date("r").")'\n" .
+				"set title 'Gas Mileage Statistics (plotted ".date("m/d/Y").")'\n" .
 				"set multiplot\n" .
-				"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
+				"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
 				"set ylabel 'Miles/Gallon' tc lt 1\n" .
 				"set y2label 'Miles/Day' tc lt 2\n" .
 				"set xdata time\n" .
@@ -159,9 +159,9 @@ class pgmdb {
 				"\n" .
 				"unset multiplot\n" .
 				"set output 'fuelcost.png'\n" .
-				"set title 'Fuel Cost Statistics (plotted ".date("r").")'\n" .
+				"set title 'Fuel Cost Statistics (plotted ".date("m/d/Y").")'\n" .
 				"set multiplot\n" .
-				"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
+				"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
 				"set ylabel 'Dollars/Gallon'\n" .
 				"set y2label 'Dollars/Tank'\n" .
 				"plot " .
@@ -183,7 +183,7 @@ class pgmdb {
 			echo stream_get_contents($pipes[1]);
 			echo "</pre>\n";
 			fclose($pipes[1]);
-		
+			
 			// It is important that you close any pipes before calling
 			// proc_close in order to avoid a deadlock
 			$return_value = proc_close($process);
@@ -371,7 +371,11 @@ class pgmdb {
 				."<td>".$record['loc']."</td>"
 				."<td>".$record['name']."</td>"
 				."<td>".$record['topd']."</td>"
-				."<td align=right>".number_format($record['mpg'],1)."</td>"
+				."<td align=right>"
+				.(strtolower($record['topd'])=="yes"?"":"(")
+				.number_format($record['mpg'],1)
+				.(strtolower($record['topd'])=="yes"?"":")")
+				."</td>"
 				;
 		
 			if (isset($prnt_rng_avg))
@@ -785,41 +789,33 @@ class pgmdb {
 				
 				echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>";
 		
-				foreach ($this->recordArray as $record) 
+				foreach ($this->completeArray as $record) 
 				{
 			      $records = $records + 1;
 		
 			      if ($records > 1)
-				{ 
-				  $travelled = $record['odo'] - $last_odo;
-				  $mpg = ($record['odo']-$last_odo)/$record['gals'];
-				  $time_elap = strtotime($record['date']) - strtotime($last_date);
-				  $days_elap = round ($time_elap / 86400);
-				  $tank_cost = round($record['price']*$record['gals'],2);
-				  
-				  // Print Waveforms
-				  $fileLine = 
-				    round(strtotime($record['date']))."\t"
-				    .$travelled."\t"
-				    .$record['gals']."\t"
-				    .$record['price']."\t"
-				    .$tank_cost."\t"
-				    .round($travelled/$days_elap,3)."\t"
-				    .round($mpg,3)."\n";
-		
-				  if (fwrite ( $wfmHandle, $fileLine )===FALSE)
-				    {
-				      echo "I/O error.\n";
-				      exit();
-				    }
-				  
-				}
+					{
+					  // Print Waveforms
+					  $fileLine = 
+					    round(strtotime($record['date']))."\t"
+					    .$record['travelled']."\t"
+					    .$record['gals']."\t"
+					    .$record['price']."\t"
+					    .$record['tank_cost']."\t"
+					    .round($record['travelled']/$record['days_elap'],3)."\t"
+					    .round($record['mpg'],3)."\n";
+			
+					  if (fwrite ( $wfmHandle, $fileLine )===FALSE)
+					    {
+					      echo "I/O error.\n";
+					      exit();
+					    }
+					  
+					}
 			      else {
-				$starttime = strtotime($record['date']);
+					$starttime = strtotime($record['date']);
 			      }
 		
-			      $last_odo = $record['odo'];
-			      $last_date = $record['date'];
 			    }
 		
 			    fclose($wfmHandle);
