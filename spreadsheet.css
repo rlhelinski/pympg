@@ -1,6 +1,12 @@
-/* Note this isn't currently used */
+/* 
+  This is where all of the styles should be given to
+  the HTML structures
+*/
+
+/* html, body, form { margin: 0; padding: 0; } */
+
 DIV {
-	border: 1px solid #eee;
+	/* border: 1px solid #eee; */
 }
 
 DIV.notice {
@@ -15,10 +21,39 @@ DIV.alert {
 	margin: 0.5em;	
 }
 
+DIV#header {
+	/* background-color: #cccccc; */
+	padding: .5em;
+	border: 1px solid #eee;
+	margin-bottom: 0em;
+}
+
+DIV#header H1 {
+	padding-left: .25em;
+}
+
+DIV#toolbar {
+	background-color: #cccccc;
+	border-top: 1px solid #000;
+	border-bottom: 1px solid #000;
+	padding: 1em;
+	margin-bottom: 2em;
+}
+
+DIV#toolbar form {
+	margin: 0; padding: 0; 
+}
+
 DIV#footer {
 	font-size: 10pt;
-	
+	font-style: Italic;
+	background-color: #cccccc;
+	margin-top: 2em;
+	padding: 1em;
+	border-top: 1px solid #000;
 }
+
+
 
 PRE {
    font-size: 10pt;

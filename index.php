@@ -27,8 +27,9 @@ foreach ($_GET as $key => $val) {
 <h1>PHP Gas Mileage Database</h1>
 </div>
 
+<div id="toolbar">
 <?php $gasMileage->print_function_chooser(); ?>
-<hr>
+</div>
 
 <div id="content">
 
@@ -68,7 +69,7 @@ if (isset($_POST['function'])) {
 
 ?>
 </div>
-<hr>
+
 <div id="footer">PHP Gas Mileage Database, by Ryan Helinski.
 <?php 
 list($end_usec, $end_sec) = explode(" ", microtime());

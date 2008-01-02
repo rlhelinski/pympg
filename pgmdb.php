@@ -841,7 +841,6 @@ class pgmdb {
 	function print_function_chooser () {
 		$this->readConfigFile($GLOBALS['configFile']);
 	
-		echo "<div class=\"form\">";
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
 	
@@ -876,7 +875,7 @@ class pgmdb {
 		if (isset($_POST['datafile']) && $_POST['datafile'] == "")
 			echo "<p>This program is a gas mileage database and analyzer written in PHP. It is self-contained (has a single source code file). It stores data in a simple text file in HTTP-query format. It allows users to add new records, and add new data files for different vehicles. It creates a backup before a new record is added. It also implements password protection for users to add refueling records. </p>\n";
 
-		echo "</div>\n";
+		echo "\n";
 		
 	}
 	
