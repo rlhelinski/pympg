@@ -23,13 +23,13 @@ DIV.alert {
 
 DIV#header {
 	/* background-color: #cccccc; */
-	padding: .5em;
+	padding: 0em;
 	border: 1px solid #eee;
 	margin-bottom: 0em;
 }
 
 DIV#header H1 {
-	padding-left: .25em;
+	padding-left: .5em;
 }
 
 DIV#toolbar {
@@ -52,8 +52,6 @@ DIV#footer {
 	padding: 1em;
 	border-top: 1px solid #000;
 }
-
-
 
 PRE {
    font-size: 10pt;

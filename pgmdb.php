@@ -30,7 +30,7 @@ class pgmdb {
 			return;
 		
 		if (($handle = fopen($fileName, "r"))===false)
-			echo "Couldn't open ".$fileName;
+			die( "Couldn't open ".$fileName);
 			
 		while(!feof($handle)) {
 			if (($buffer = fgets($handle, 4096))!==false)
@@ -54,7 +54,7 @@ class pgmdb {
 			return;
 	
 		if (($handle = fopen($varRoot.'/'.$fileName, "r"))===false)
-			echo "Couldn't open ".$fileName;
+			die ("Couldn't open ".$fileName);
 	
 		while(!feof($handle)) {
 			$newRecord = array();
@@ -84,25 +84,25 @@ class pgmdb {
 			// Create a backup copy. This is not critical
 		 
 			if (!copy($filename, $filename."~"))
-			    echo "Failed to create backup.\n";
+			    echo "<div class='alert'>Failed to create backup.</div>\n";
 	
 			if (!$handle = fopen($filename, 'a')) {
-				echo "Cannot open file ($filename)";
+				echo "<div class='alert'>Cannot open file ($filename)</div>\n";
 				exit;
 			}
 	
 			if (fwrite($handle, $newstring) === FALSE) {
-				echo "Cannot write to file ($filename)";
+				echo "<div class='alert'>Cannot write to file ($filename)</div>\n";
 				exit;
 			}
 		 
-			echo "Successfully added record to ".$filename."<br>\n";
+			echo "<div class='notice'>Successfully added record to <tt>".$filename."</tt></div>\n";
 				$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
 	
 			fclose($handle);
 	
 		} else {
-			echo "The file $filename is not writable";
+			echo "<div class='alert'>The file $filename is not writable</div>\n";
 		}
 		
 	}
@@ -111,6 +111,12 @@ class pgmdb {
 		
 		global $recordArray;
 		
+		// Check that the GNUPLOT path is correct
+		echo "<!-- ";
+		$output = system($GLOBALS['gnuplot_path']." --version", $retval);
+		echo " -->\n";
+		if ($retval != 0)
+			die("GNUPLOT path variable incorrect.");
 		$descriptorspec = array(
 			0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
 			1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
@@ -179,9 +185,9 @@ class pgmdb {
 			fwrite($pipes[0], $programme);
 			fclose($pipes[0]);
 		
-			echo "<pre>";
+			echo "<!-- ";
 			echo stream_get_contents($pipes[1]);
-			echo "</pre>\n";
+			echo "-->\n";
 			fclose($pipes[1]);
 			
 			// It is important that you close any pipes before calling
@@ -190,8 +196,7 @@ class pgmdb {
 		
 			echo "<!-- GNUPLOT returned $return_value -->\n";
 		} else {
-			echo "Couldn't open pipe to GNUPLOT.";
-			exit;
+			die( "Couldn't open pipe to GNUPLOT.");
 		}
 	}
 		
@@ -610,18 +615,17 @@ class pgmdb {
 		{
 			if (md5($_POST['password']) != rtrim($password_hash))
 			{
-				echo "Error: Password doesn't match that on file.<br>\n";
+				echo "<div class='alert'>Error: Password doesn't match that on file.</div>\n";
 				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
-				exit;
+			} else {
+				$this->addRecord($datafile,$record);
 			}
-			
-			$this->addRecord($datafile,$record);
 	
 		} else {
 			if (!isset($_POST['date']) || $_POST['date'] == "") 
-				echo "Please fill out the form and click submit.<br>\n";
-			else if (strtotime($_POST['date']) === false) echo "ERROR: Couldn't understand your date entry.<br>\n";
-			else echo "Failed to convert date entry \"".$_POST['date']."\" \"".$date_UTC."\".\n";
+				echo "<div class='alert'>Please fill out the form completely and click submit.</div>\n";
+			else if (strtotime($_POST['date']) === false) 
+				echo "<div class='alert'>ERROR: Couldn't understand your date entry \"".$_POST['date']."\" \"".$date_UTC."\".</div>\n";
 		}
 	    
 	    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
@@ -670,57 +674,58 @@ class pgmdb {
 	   if ( isset($_POST['filename']) && $_POST['filename'] != "" )
 	     {
 	       if ( $_POST['password1'] != $_POST['password2'] )
-		 {
-		   echo "Error: Passwords don't match.<br>\n";
-		 }
+			 {
+			   echo "<div class='alert'>Error: Password repetition does not match.</div>\n";
+			 // should not continue
+			 }
 	
 	       if ( ! file_exists($varRoot.'/'.$_POST['filename']) )
-		 {
-		   $handle = fopen($varRoot.'/'.$_POST['filename'],"x");
-		   $headerstring = "year=".$_POST['year']."&make=".$_POST['make']
-		   ."&model=".$_POST['model']."&owner=".$_POST['owner']."&tanksize="
-		   .$_POST['tanksize']."\n";
+		 	{
+			   $handle = fopen($varRoot.'/'.$_POST['filename'],"x");
+			   $headerstring = "year=".$_POST['year']."&make=".$_POST['make']
+			   ."&model=".$_POST['model']."&owner=".$_POST['owner']."&tanksize="
+			   .$_POST['tanksize']."\n";
 	
-		   if (fwrite($handle, $headerstring) === FALSE) {
-		     echo "Cannot write to file (".$varRoot.'/'.$_POST['filename'].")";
-		     exit;
-		   }
-		   
-		   echo "Successfully created data file ".$varRoot.'/'.$_POST['filename']."<br>\n";
-		   
-		   fclose($handle);
-	
-			// Create a backup copy. Failure of this is not fatal.
-			if (!copy($configFile, $configFile."~"))
-				echo "Failed to create backup.\n";
+			   if (fwrite($handle, $headerstring) === FALSE) {
+			     die( "Cannot write to file (".$varRoot.'/'.$_POST['filename'].")");
+			   }
+			   
+			   echo "<div class='notice'>Successfully created data file ".$varRoot.'/'.$_POST['filename']."</div>\n";
+			   
+			   fclose($handle);
+		
+				// Create a backup copy. Failure of this is not fatal.
+				if (!copy($configFile, $configFile."~"))
+					echo "Failed to create backup.\n";
+					
+				$this->readConfigFile($configFile);
 				
-			$this->readConfigFile($configFile);
-			
-			$this->configArray['file'][] = $_POST['filename'];
-			$this->configArray['password'][] = $_POST['password1'];
-	
-			foreach ($this->configArray['file'] as $file)
-				$fileArray[] = "file[]=".$file;
-			foreach ($this->configArray['password'] as $password)
-				$passArray[] = "password[]=".md5($password);
-	
-			$handle = fopen($configFile,"w");
-			if ($handle === false || 
-			fwrite($handle, implode("&",$fileArray)."\n")===false ||
-			fwrite($handle, implode("&",$passArray)."\n")===false )
-			{
-				echo "Couldn't add the new file to the list of data files.<br>\n";
-				exit;
-			}
-		     
-		   echo "Successfully added new file to list of data files, "
-		   	."<a href=\"$pageAddress?datafile=".$_POST['filename']
-		   	."&function=record\">Start adding records for this vehicle</a>.<br>\n";
-		   fclose($handle);
-		   
-		   // TODO should switch to 'record' function at this point.
-		 }
-	       else { echo "File already exists.<br>\n"; }
+				$this->configArray['file'][] = $_POST['filename'];
+				$this->configArray['password'][] = $_POST['password1'];
+		
+				foreach ($this->configArray['file'] as $file)
+					$fileArray[] = "file[]=".$file;
+				foreach ($this->configArray['password'] as $password)
+					$passArray[] = "password[]=".md5($password);
+		
+				$handle = fopen($configFile,"w");
+				if ($handle === false || 
+				fwrite($handle, implode("&",$fileArray)."\n")===false ||
+				fwrite($handle, implode("&",$passArray)."\n")===false )
+				{
+					die( "Couldn't add the new file to the list of data files.<br>\n");
+				}
+			     
+			   echo "<div class='notice'>Successfully added new file to list of data files, "
+			   	."<a href=\"$pageAddress?datafile=".$_POST['filename']
+			   	."&function=record\">Start adding records for this vehicle</a>.</div>\n";
+			   fclose($handle);
+			   
+			   // TODO should switch to 'record' function at this point.
+		 	}
+	       else { 
+	       	echo "<div class='alert'>File already exists.</div>\n";
+	       }
 	     }   
 	
 	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
@@ -764,7 +769,7 @@ class pgmdb {
 		global $varRoot;
 		
 		$records = 0;
-		
+				
 	    if (($wfmHandle = fopen($wfmFileName,"w"))!==FALSE)
 	      {
 			if (file_exists($varRoot.'/'.$_POST['datafile']))
@@ -777,8 +782,8 @@ class pgmdb {
 				$this->print_vehicle_info();
 
 				if (count($this->recordArray)==0) {
-					echo "<p>This file contains no records. Please use the 'record'" .
-							" function and add at least two fuel records.</p>\n";
+					echo "<div class='notice'>This file contains no records. Please use the 'record'" .
+							" function and add at least two fuel records.</div>\n";
 					return;
 				}
 				
@@ -787,7 +792,7 @@ class pgmdb {
 			    if (fwrite ( $wfmHandle, $heading )===FALSE)
 					die ("I/O error.");
 				
-				echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>";
+				echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>\n";
 		
 				foreach ($this->completeArray as $record) 
 				{
@@ -840,7 +845,7 @@ class pgmdb {
 	// PRINT DATABASE QUERY TOOL CODE
 	function print_function_chooser () {
 		$this->readConfigFile($GLOBALS['configFile']);
-	
+		
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
 	
