@@ -3,7 +3,7 @@
 #
 # This is usually revised before each major update
 #
-SOURCES := $(shell ls Makefile changelog.txt *.php *.gp)
+SOURCES := $(shell ls Makefile changelog.txt *.css *.php *.gp)
 DIRS = images
 EXCLUDE = "*/.svn*"
 
@@ -15,7 +15,8 @@ TAROPTS = --create --dereference --verbose --bzip2
 
 # The first rule is the default rule!
 install: 
-	mkdir var && chmod a+rwx var && echo "" > var/datafiles.txt;
+	mkdir var && chmod a+rwx var && echo "" > var/datafiles.txt \
+		chmod a+rw var/datafiles.txt ;
 
 release:
 	make $(TARBALL)
