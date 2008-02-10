@@ -10,18 +10,18 @@
  
 class pgmdb {
 	
-	private $function_list = array('summary','print','record','plot','create');
+	var $function_list = array('summary','print','record','plot','create');
 	
-	private $functionDesc = array (
+	var $functionDesc = array (
 		"print" => "Reduced printer-friendly report",
 		"summary" => "Full report with derived statistics"
 	);
 	
-	private $configArray = array();
-	private $carArray = array();
-	private $recordArray = array();
-	private $completeArray = array();
-	private $globalStats = array();
+	var $configArray = array();
+	var $carArray = array();
+	var $recordArray = array();
+	var $completeArray = array();
+	var $globalStats = array();
 	
 	function readConfigFile($fileName) {
 		$newArray = array();
@@ -798,7 +798,7 @@ class pgmdb {
 
 				if (count($this->recordArray)==0) {
 					echo "<div class='notice'>This file contains no records. Please use the 'record'" .
-							" function and add at least two fuel records.</div>\n";
+						" function and add at least two fuel records.</div>\n";
 					return;
 				}
 				
@@ -841,19 +841,19 @@ class pgmdb {
 			    fclose($wfmHandle);
 		
 				$this->plotWaveform($wfmFileName);
-			    
-			    echo "<img src=\"var/mpg.png\" alt=\"Gas Mileage\">\n";
-	            echo "<img src=\"var/fuelcost.png\" alt=\"Fuel Cost\">\n";
-		
+			    		
 			  }
 			else {
-			  die("Couldn't open ".$_POST['datafile']." for reading.\n");
+			  echo "Couldn't open ".$_POST['datafile']." for reading.\n";
 			}
 	
 	      }
 	    else {
-	      die("Couldn't open ".$wfmFileName." for writing.\n");
+	      echo "Couldn't open ".$wfmFileName." for writing.\n";
 	    }
+
+	    echo "<img src=\"var/mpg.png\" alt=\"Gas Mileage\">\n";
+        echo "<img src=\"var/fuelcost.png\" alt=\"Fuel Cost\">\n";
 
 	}
 		
