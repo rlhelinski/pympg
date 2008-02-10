@@ -73,3 +73,39 @@ TABLE TR.units {
 	background-color: #e6e6e6;
 	font-style: italic;
 }
+
+a.info{
+position:relative;           /*this is the key*/
+z-index:24;
+background-color:#e0e0e0;    /* background colour of display text */
+color:#000000;               /* colour of display text */
+border:1px dotted #999;    /* border colour */
+text-decoration:none;
+font-style:italic;
+}
+
+a.info:hover {
+z-index:25;
+background-color:#ffff66;
+
+}
+
+a.info span{
+display: none;  /* hide the span text using this css */
+}
+
+a.info:hover span{ /*the span will display just on :hover state*/
+display:block;
+position:absolute;
+top: 1.5em;
+left: 3em;
+width:15em;
+border:1px solid #ff0000; /* border colour */
+background-color:#ffff99; /* background colour here */
+color:#000000;         /* text colour */
+text-align: center;
+font-size: .8em;
+font-style:italic;
+z-index:30;
+}
+

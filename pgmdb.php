@@ -97,7 +97,15 @@ class pgmdb {
 			}
 		 
 			echo "<div class='notice'>Successfully added record to <tt>".$filename."</tt></div>\n";
-				$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
+			
+			$this->process_records();
+			
+			echo "<P>New miles/gallon estimate: <b>"
+				.number_format($this->completeArray[count($this->completeArray)-1]['mpg'],2)
+				." mpg</b></P>\n";
+			
+			# Empty the fields to be printed in the form (not working)
+			$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
 	
 			fclose($handle);
 	
@@ -311,6 +319,9 @@ class pgmdb {
 //		print_r($this->completeArray);
 //		print_r($this->globalStats);
 //		echo "</pre>";
+
+		# Full table is now available at $this->completeArray 
+
 	}
 		
 	// PRINT DETAILED RECORD CODE
@@ -359,12 +370,16 @@ class pgmdb {
 			else
 				$opts = "";
 
+			# TODO make sure that addslashes() is the func used to add
+			# strings to the file, since I'm using stripslashes() here!
+
 			// Print Table Row
 			echo "<tr$opts>"
-				."<td>".$record['date']
+				."<td>"
 				.(isset($record['note']) && chop($record['note']) != "" ? 
-					" <img src=\"fat_pen.png\" alt=\"note\" title=\""
-					.chop($record['note'])."\">" : "" )
+					"<a href='#' class='info'>".$record['date']
+					."<span>".stripslashes(chop($record['note']))."</span>" 
+					: $record['date'] )
 				."</td>"
 				."<td align=right>".$record['days_elap']."</td>"
 				."<td align=right>".number_format($record['odo'])."</td>"
@@ -373,8 +388,8 @@ class pgmdb {
 				."<td align=right>".number_format($record['price'],3)."</td>"
 				."<td align=right>".number_format($record['tank_cost'],2)."</td>"
 				."<td align=right>".number_format($record['miles_per_day'],2)."</td>"
-				."<td>".$record['loc']."</td>"
-				."<td>".$record['name']."</td>"
+				."<td>".stripslashes($record['loc'])."</td>"
+				."<td>".stripslashes($record['name'])."</td>"
 				."<td>".$record['topd']."</td>"
 				."<td align=right>"
 				.(strtolower($record['topd'])=="yes"?"":"(")
