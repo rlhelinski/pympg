@@ -5,6 +5,8 @@ Legend: (*) denotes not done, (.) denotes done, (x) denotes canceled
 
 goals for post-1.0: 
 *	Export to spreadsheet format(s)
+.	Added CSS to Makefile rule
+.	Changed mode of datafiles.txt in install rule
 
 goals for 1.0:
 . Object-oriented, modular code with little repetition
