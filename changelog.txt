@@ -1,5 +1,5 @@
 Gas Mileage PHP Database, by Ryan Helinski
-gas_mileage.php, version 0.7
+Version:1.0
 
 Legend: (*) denotes not done, (.) denotes done, (x) denotes canceled
 
