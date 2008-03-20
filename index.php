@@ -46,6 +46,13 @@ if (isset($_POST['function'])) {
 		case "print":
 			$gasMileage->print_friendly_records();
 			break;
+		case "export":
+			if (isset($_POST['type'])) {
+				$gasMileage->export($_POST['type']);
+			} else {
+				$gasMileage->print_export_form();
+			}
+			break;
 		case "plot":
 			$gasMileage->display_waveform();
 			break;
@@ -74,7 +81,7 @@ if (isset($_POST['function'])) {
 <?php 
 list($end_usec, $end_sec) = explode(" ", microtime());
 
-echo "Executed in: "
+echo "Execution time: "
   .number_format($end_usec + $end_sec - $begin_usec - $begin_sec,3)
   ." s"; ?>
 </div>

@@ -1,36 +1,51 @@
-<!-- PHP Gas Mileage DataBase Access Engine, by Ryan Helinski -->
+<!-- PHP Gas Mileage Computation Engine, by Ryan Helinski -->
 <?php
 /*
  * Created on Dec 22, 2007 by Ryan Helinski
  *
  * This is the object which handles the processing of data from 
- * a standard database interface (which contains the data).
+ * a standard database interface (which contains the data), and
+ * rendering HTML code for the controls and output. 
  *
  */
+include_once('filedb.php');
  
 class pgmdb {
 	
-	var $function_list = array('summary','print','record','plot','create');
+	var $function_list = array('summary','print','export','record','plot','create');
+	var $export_types = array('csv');
 	
 	var $functionDesc = array (
 		"print" => "Reduced printer-friendly report",
 		"summary" => "Full report with derived statistics"
 	);
 	
+	// this data should actually stay here
 	var $configArray = array();
 	var $carArray = array();
 	var $recordArray = array();
 	var $completeArray = array();
 	var $globalStats = array();
 	
-	function readConfigFile($fileName) {
+	var $database;
+	
+	function pgmdb() {
+		$database = new filedb();
+	}
+	
+	// TODO file-driven code needs to be replaced with call to database->getConfig()
+	// imported
+	function readConfigFile() {
 		$newArray = array();
+		global $filedb_config_file;
 	
 		if (count($this->configArray)>0)
 			return;
 		
-		if (($handle = fopen($fileName, "r"))===false)
-			die( "Couldn't open ".$fileName);
+		if (($handle = fopen($filedb_config_file, "r"))===false) {
+			debug_print_backtrace();
+			die( "Couldn't open ".$filedb_config_file);
+		}
 			
 		while(!feof($handle)) {
 			if (($buffer = fgets($handle, 4096))!==false)
@@ -47,14 +62,17 @@ class pgmdb {
 		
 	}
 	
+	// TODO needs to be replaced with a call to database->getVehicleRecords()
+	// imported
 	function readDataFile($fileName) {
-		global $varRoot;
 	
 		if (count($this->carArray)>0)
 			return;
 	
-		if (($handle = fopen($varRoot.'/'.$fileName, "r"))===false)
+		if (($handle = fopen($fileName, "r"))===false) {
+			debug_print_backtrace();
 			die ("Couldn't open ".$fileName);
+		}
 	
 		while(!feof($handle)) {
 			$newRecord = array();
@@ -76,6 +94,8 @@ class pgmdb {
 	//	echo "</pre>";
 	}
 	
+	// TODO needs to be replaced with a call to database->addRefuelRecord
+	// imported
 	function addRecord ($filename, $record) {
 		$newstring = http_build_query($record)."\n";
 	
@@ -115,6 +135,8 @@ class pgmdb {
 		
 	}
 	
+	// TODO move the gnuplot-controlling code to a different class
+	// DEFER
 	function plotWaveform($wfmFileName) {
 		
 		global $recordArray;
@@ -207,42 +229,22 @@ class pgmdb {
 			die( "Couldn't open pipe to GNUPLOT.");
 		}
 	}
-		
-	// TODO this function needs to be broken up into FOUR:
-	// V first, produce a big table from the input table
-	// then create a function to produce the summary table
-	// function to produce the print table
-	// function to produce the summary and statistics
 
 	// PROCESS RECORDS TO EXPAND DATA
 	function process_records () {
-		global $varRoot;
+		global $var_root;
 
 	    # We read the file here
-		$this->readDataFile($_POST['datafile']);
+		$this->readDataFile($var_root.'/'.$_POST['datafile']);
 
-		# Create references for easy access
-		$global_gals = &$this->globalStats['gals'];
-		$global_miles = &$this->globalStats['miles'];
-		$global_cost = &$this->globalStats['cost'];
-		$global_days = &$this->globalStats['days'];
-		$max_range = &$this->globalStats['max_range'];
-		$min_mpg = &$this->globalStats['min_mpg'];
-		$max_mpg = &$this->globalStats['max_mpg'];
-		$last_last_odo = &$this->globalStats['last_last_odo'];
-		$last_odo = &$this->globalStats['last_odo'];
-		$last_date = &$this->globalStats['last_date'];
-		$last_gals = &$this->globalStats['last_gals'];
-		$last_topd = &$this->globalStats['last_topd'];
-		
 		# Initialize global stat variables
-		$global_gals = 0;
-		$global_miles = 0;
-		$global_cost = 0;
-		$global_days = 0;
-		$max_range = 0;
-		$max_mpg = 0;
-		$min_mpg = INF;
+		$this->globalStats['gals'] = 0;
+		$this->globalStats['miles'] = 0;
+		$this->globalStats['cost'] = 0;
+		$this->globalStats['days'] = 0;
+		$this->globalStats['max_range'] = 0;
+		$this->globalStats['max_mpg'] = 0;
+		$this->globalStats['min_mpg'] = INF;
 		$records = -1;
 		$format = '%m/%d/%Y';
 
@@ -253,25 +255,25 @@ class pgmdb {
 			// Update global stats
 			if ($records > 0)
 			{
-				$global_gals = $global_gals + $record['gals'];
-				$travelled = $record['odo'] - $last_odo;
+				$this->globalStats['gals'] = $this->globalStats['gals'] + $record['gals'];
+				$travelled = $record['odo'] - $this->globalStats['last_odo'];
 			
-				if ($max_range < $travelled) 
-					$max_range = $travelled;
+				if ($this->globalStats['max_range'] < $travelled) 
+					$this->globalStats['max_range'] = $travelled;
 			
-				$mpg = ($record['odo']-$last_odo)/$record['gals'];
+				$mpg = ($record['odo']-$this->globalStats['last_odo'])/$record['gals'];
 				if ($record['topd'][0] == "Y")
 				{
-					if ($max_mpg < $mpg) $max_mpg = $mpg;
-					if ($min_mpg > $mpg) $min_mpg = $mpg;
+					if ($this->globalStats['max_mpg'] < $mpg) $this->globalStats['max_mpg'] = $mpg;
+					if ($this->globalStats['min_mpg'] > $mpg) $this->globalStats['min_mpg'] = $mpg;
 				}
 			
-				$time_elap = strtotime($record['date']) - strtotime($last_date);
+				$time_elap = strtotime($record['date']) - strtotime($this->globalStats['last_date']);
 				$days_elap = round ($time_elap / 86400);
-				$global_days = $global_days + $days_elap;
-				$global_miles = $global_miles + $travelled; 
+				$this->globalStats['days'] = $this->globalStats['days'] + $days_elap;
+				$this->globalStats['miles'] = $this->globalStats['miles'] + $travelled; 
 				$tank_cost = round($record['price']*$record['gals'],2);
-				$global_cost = $global_cost + $tank_cost;
+				$this->globalStats['cost'] = $this->globalStats['cost'] + $tank_cost;
 				$miles_per_day = $travelled/$days_elap;
 			
 			}
@@ -301,18 +303,18 @@ class pgmdb {
 				"topd" => chop($record['topd']),
 				"mpg" => $mpg,
 				"mpg_rng_avg" => (
-					isset($last_gals) && isset($odo) && isset($last_last_odo) &&  
-					($record['gals']+$last_gals > 0) ? 
-					($odo-$last_last_odo)/($record['gals']+$last_gals) :
+					isset($this->globalStats['last_gals']) && isset($odo) && isset($this->globalStats['last_last_odo']) &&  
+					($record['gals']+$this->globalStats['last_gals'] > 0) ? 
+					($odo-$this->globalStats['last_last_odo'])/($record['gals']+$this->globalStats['last_gals']) :
 					"N/A" )
 			);
 		
 			// Save Some Data for Next Iteration
-			if (isset($last_odo)) $last_last_odo = $last_odo;
-			$last_odo = $record['odo'];
-			$last_date = $record['date'];
-			$last_gals = $record['gals'];
-			$last_topd = $record['topd'];
+			if (isset($this->globalStats['last_odo'])) $this->globalStats['last_last_odo'] = $this->globalStats['last_odo'];
+			$this->globalStats['last_odo'] = $record['odo'];
+			$this->globalStats['last_date'] = $record['date'];
+			$this->globalStats['last_gals'] = $record['gals'];
+			$this->globalStats['last_topd'] = $record['topd'];
 		} // end foreach
 		
 //		echo "<pre>";
@@ -326,7 +328,7 @@ class pgmdb {
 		
 	// PRINT DETAILED RECORD CODE
 	function print_summary () {
-		global $varRoot;
+		global $var_root;
 		$records = -1;
 		
 	    # Call to produce the big table
@@ -431,12 +433,12 @@ class pgmdb {
 
 	// PRINT PRINTER-FRIENDLY RECORD CODE
 	function print_friendly_records () {
-		global $varRoot;
+		global $var_root;
 		$records = -1;
 		
 	    # Call to produce the big table
 		$this->process_records();
-
+		
 		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
 		
 		$this->print_vehicle_info();
@@ -509,32 +511,17 @@ class pgmdb {
 
 	// PRINT GAS MILEAGE SUMMARY
 	function print_stats_summary () {
-		# Create references for easy access
-		$global_gals = &$this->globalStats['gals'];
-		$global_miles = &$this->globalStats['miles'];
-		$global_cost = &$this->globalStats['cost'];
-		$global_days = &$this->globalStats['days'];
-		$max_range = &$this->globalStats['max_range'];
-		$min_mpg = &$this->globalStats['min_mpg'];
-		$max_mpg = &$this->globalStats['max_mpg'];
-		$records = count($this->recordArray);
-		$last_last_odo = &$this->globalStats['last_last_odo'];
-		$last_odo = &$this->globalStats['last_odo'];
-		$last_date = &$this->globalStats['last_date'];
-		$last_gals = &$this->globalStats['last_gals'];
-		$last_topd = &$this->globalStats['last_topd'];
-		
 		
 		echo "<h2>Gas Mileage Summary</h2>\n";
 		
 		echo "<table class=\"summary\">\n"
-			."<tr><td>Number of Records: </td><td><b>".$records."</b></td><td>records</td></tr>\n"
-			."<tr><td>Total Gallons Consumed: </td><td><b>".number_format(round($global_gals))."</b> </td><td>gallons<td></td></tr>\n"
-			."<tr><td>Total Miles Travelled: </td><td><b>".number_format($global_miles)."</b> </td><td>miles<td></td></tr>\n"
-			."<tr><td>Total Days on Record: </td><td><b>".$global_days."</b> (<b>".round($global_days/365.25,2)."</b>) </td><td>days (years)</td></tr>\n"
-			."<tr><td>Total Gas Cost: </td><td><b>$".number_format(round($global_cost))."</b> </td><td>US dollars<td></td></tr>\n"
-//			."Latest Gas Mileage: <b>".round(($last_odo-$last_last_odo)/$last_gals,2)."</b> mpg<br>\n"
-			."<tr><td>Average Gas Mileage: </td><td><b>".round($global_miles/($global_gals),1)."</b> </td><td>mpg<td></td></tr>\n"
+			."<tr><td>Number of Records: </td><td><b>".count($this->recordArray)."</b></td><td>records</td></tr>\n"
+			."<tr><td>Total Gallons Consumed: </td><td><b>".number_format(round($this->globalStats['gals']))."</b> </td><td>gallons<td></td></tr>\n"
+			."<tr><td>Total Miles Travelled: </td><td><b>".number_format($this->globalStats['miles'])."</b> </td><td>miles<td></td></tr>\n"
+			."<tr><td>Total Days on Record: </td><td><b>".$this->globalStats['days']."</b> (<b>".round($this->globalStats['days']/365.25,2)."</b>) </td><td>days (years)</td></tr>\n"
+			."<tr><td>Total Gas Cost: </td><td><b>$".number_format(round($this->globalStats['cost']))."</b> </td><td>US dollars<td></td></tr>\n"
+//			."Latest Gas Mileage: <b>".round(($this->globalStats['last_odo']-$this->globalStats['last_last_odo'])/$this->globalStats['last_gals'],2)."</b> mpg<br>\n"
+			."<tr><td>Average Gas Mileage: </td><td><b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)."</b> </td><td>mpg<td></td></tr>\n"
 			."</table>\n"
 			;
 		
@@ -543,46 +530,33 @@ class pgmdb {
 	// PRINT GAS MILEAGE STATISTICS
 	function print_stats_detailed () {
 		# Create references for easy access
-		$global_gals = &$this->globalStats['gals'];
-		$global_miles = &$this->globalStats['miles'];
-		$global_cost = &$this->globalStats['cost'];
-		$global_days = &$this->globalStats['days'];
-		$max_range = &$this->globalStats['max_range'];
-		$min_mpg = &$this->globalStats['min_mpg'];
-		$max_mpg = &$this->globalStats['max_mpg'];
-		$records = count($this->recordArray);
-		$last_last_odo = &$this->globalStats['last_last_odo'];
-		$last_odo = &$this->globalStats['last_odo'];
-		$last_date = &$this->globalStats['last_date'];
-		$last_gals = &$this->globalStats['last_gals'];
-		$last_topd = &$this->globalStats['last_topd'];
 		
 		echo "<h2>Detailed Statistics</h2>\n"
-			."Latest Gas Mileage: <b>".round(($last_odo-$last_last_odo)/$last_gals,2)."</b> mpg<br>\n"
-			."Minimum Gas Mileage: <b>".round($min_mpg,1)."</b> miles/gallon<br>\n"
-			."Average Gas Mileage: <b>".round($global_miles/($global_gals),1)
+			."Latest Gas Mileage: <b>".round(($this->globalStats['last_odo']-$this->globalStats['last_last_odo'])/$this->globalStats['last_gals'],2)."</b> mpg<br>\n"
+			."Minimum Gas Mileage: <b>".round($this->globalStats['min_mpg'],1)."</b> miles/gallon<br>\n"
+			."Average Gas Mileage: <b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)
 			."</b> miles/gallon<br>\n"
-			."Maxiumum Gas Mileage: <b>".round($max_mpg,1)."</b> miles/gallon<br>\n"
-			."Average Days Between Refeuling: <b>".round($global_days/($records-1))."</b> days<br>\n"
-			."Average Miles per Day: <b>".round($global_miles/$global_days)
+			."Maxiumum Gas Mileage: <b>".round($this->globalStats['max_mpg'],1)."</b> miles/gallon<br>\n"
+			."Average Days Between Refeuling: <b>".round($this->globalStats['days']/(count($this->recordArray)-1))."</b> days<br>\n"
+			."Average Miles per Day: <b>".round($this->globalStats['miles']/$this->globalStats['days'])
 			."</b> miles/day<br>\n"
 			."Estimated Miles per Year: <b>"
-			.number_format(round(365.25*$global_miles/$global_days,-2),0,'.',',')
+			.number_format(round(365.25*$this->globalStats['miles']/$this->globalStats['days'],-2),0,'.',',')
 			."</b> miles/year<br>\n"
-			."Estimated Gallons per Year: <b>".round(365.25*$global_gals/$global_days)."</b> gallons"
-			." per day <b>".round($global_gals/$global_days,2)."</b> gallons<br>\n"
-			."Estimated Annual Gas Cost: <b>$".round(365.25*$global_cost/$global_days)."</b> US dollars"
-			." per day <b>$".round($global_cost/$global_days,2)."</b> US dollars<br>\n"
+			."Estimated Gallons per Year: <b>".round(365.25*$this->globalStats['gals']/$this->globalStats['days'])."</b> gallons"
+			." per day <b>".round($this->globalStats['gals']/$this->globalStats['days'],2)."</b> gallons<br>\n"
+			."Estimated Annual Gas Cost: <b>$".round(365.25*$this->globalStats['cost']/$this->globalStats['days'])."</b> US dollars"
+			." per day <b>$".round($this->globalStats['cost']/$this->globalStats['days'],2)."</b> US dollars<br>\n"
 			// The actual maximum range is the maximum distance between fueling
 			// The theoretical maximum range is the range one could drive with 
 			// average or maximum gas mileage with 100% of the tank's fuel.
-			."Average Range: <b>".round($global_miles/($records))
+			."Average Range: <b>".round($this->globalStats['miles']/(count($this->recordArray)))
 			."</b> miles<br>\n"
-			."Maximum Range: <b>".$max_range."</b> miles<br>\n"
-			."Theoretical Range: <b>".round($this->carArray['tanksize']*$global_miles/$global_gals)
-			." - ".round($this->carArray['tanksize']*$max_mpg)."</b> miles<br>\n";
-			$estimated_mileage = $last_odo+($global_miles/$global_days)*(time()-strtotime($last_date))/86400;
-			$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($global_miles/$global_days),1)
+			."Maximum Range: <b>".$this->globalStats['max_range']."</b> miles<br>\n"
+			."Theoretical Range: <b>".round($this->carArray['tanksize']*$this->globalStats['miles']/$this->globalStats['gals'])
+			." - ".round($this->carArray['tanksize']*$this->globalStats['max_mpg'])."</b> miles<br>\n";
+			$estimated_mileage = $this->globalStats['last_odo']+($this->globalStats['miles']/$this->globalStats['days'])*(time()-strtotime($this->globalStats['last_date']))/86400;
+			$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($this->globalStats['miles']/$this->globalStats['days']),1)
 			;
 
 		echo "Estimated Current Milage: <b>"
@@ -592,16 +566,16 @@ class pgmdb {
 			//.round(($time_to_service*86400-time()+strtotime($date))/86400,2)
 			.round($days_to_service)
 			."</b> days, on or before <b>"
-			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($last_date))."</b><br>\n"
+			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($this->globalStats['last_date']))."</b><br>\n"
 	      	;
 	}
 	
 	// ADD RECORD CODE
 	function print_add_record_form () {
 		global $configFile;
-		global $varRoot;
+		global $var_root;
 		
-	    $datafile = $varRoot.'/'.$_POST['datafile'];
+	    $datafile = $var_root.'/'.$_POST['datafile'];
 		$this->readConfigFile($configFile);
 	    $index = array_search($_POST['datafile'],$this->configArray['file']);
 	    $password_hash = $this->configArray['password'][$index];
@@ -630,7 +604,7 @@ class pgmdb {
 		{
 			if (md5($_POST['password']) != rtrim($password_hash))
 			{
-				echo "<div class='alert'>Error: Password doesn't match that on file.</div>\n";
+				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
 				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
 			} else {
 				$this->addRecord($datafile,$record);
@@ -679,8 +653,9 @@ class pgmdb {
 	}
 	
 	// ADD NEW DATA STORAGE FILE CODE
+	// TODO this funcion needs to be split up 
 	function print_new_file_form() {
-		global $varRoot;
+		global $var_root;
 		global $configFile;
 		global $pageAddress;
 
@@ -693,19 +668,20 @@ class pgmdb {
 			   echo "<div class='alert'>Error: Password repetition does not match.</div>\n";
 			 // should not continue
 			 }
-	
-	       if ( ! file_exists($varRoot.'/'.$_POST['filename']) )
+			else 
+			# begin file-oriented stuff
+	       if ( ! file_exists($var_root.'/'.$_POST['filename']) )
 		 	{
-			   $handle = fopen($varRoot.'/'.$_POST['filename'],"x");
+			   $handle = fopen($var_root.'/'.$_POST['filename'],"x");
 			   $headerstring = "year=".$_POST['year']."&make=".$_POST['make']
 			   ."&model=".$_POST['model']."&owner=".$_POST['owner']."&tanksize="
 			   .$_POST['tanksize']."\n";
 	
 			   if (fwrite($handle, $headerstring) === FALSE) {
-			     die( "Cannot write to file (".$varRoot.'/'.$_POST['filename'].")");
+			     die( "Cannot write to file (".$var_root.'/'.$_POST['filename'].")");
 			   }
 			   
-			   echo "<div class='notice'>Successfully created data file ".$varRoot.'/'.$_POST['filename']."</div>\n";
+			   echo "<div class='notice'>Successfully created data file ".$var_root.'/'.$_POST['filename']."</div>\n";
 			   
 			   fclose($handle);
 		
@@ -741,6 +717,7 @@ class pgmdb {
 	       else { 
 	       	echo "<div class='alert'>File already exists.</div>\n";
 	       }
+	       # end file-oriented stuff
 	     }   
 	
 	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
@@ -760,14 +737,15 @@ class pgmdb {
 	}
 	
 	# PRINT VEHICLE PROPERTIES
+	# can't link to the file for compatibility
 	function print_vehicle_info () {
-		global $varRoot;
+		global $var_root;
 		
 		echo "<p>Data File Name: <tt>";
-		if ($_POST['function'] != "print")
-			echo "<a href=\"".$varRoot.'/'.$_POST['datafile']."\">".$_POST['datafile']."</a>";
-		else 
-			echo $_POST['datafile'];
+		#if ($_POST['function'] != "print")
+		#	echo "<a href=\"".$var_root.'/'.$_POST['datafile']."\">".$_POST['datafile']."</a>";
+		#else 
+		echo $_POST['datafile'];
 			
 		echo "</tt>, Report Format: <b>Data Waveforms</b>"
 			."</p>\n";
@@ -781,13 +759,13 @@ class pgmdb {
 	// WRITE WAVEFORM AND PLOT CODE
 	function display_waveform () {
 		global $wfmFileName;
-		global $varRoot;
+		global $var_root;
 		
 		$records = 0;
 				
 	    if (($wfmHandle = fopen($wfmFileName,"w"))!==FALSE)
 	      {
-			if (file_exists($varRoot.'/'.$_POST['datafile']))
+			if (file_exists($var_root.'/'.$_POST['datafile']))
 			  {
 //				$this->readDataFile($_POST['datafile']);
 				$this->process_records();
@@ -804,8 +782,11 @@ class pgmdb {
 				
 			    $heading = "# time\t\tmiles\tgals\t$/gal\t$/tank\tmi/day\tmpg\n";
 				  
-			    if (fwrite ( $wfmHandle, $heading )===FALSE)
-					die ("I/O error.");
+			    if (fwrite ( $wfmHandle, $heading )===FALSE) {
+			    	//debug_print_backtrace();
+			    	debug_print_backtrace();
+			    	die ("I/O error.");
+			    }
 				
 				echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>\n";
 		
@@ -859,7 +840,7 @@ class pgmdb {
 		
 	// PRINT DATABASE QUERY TOOL CODE
 	function print_function_chooser () {
-		$this->readConfigFile($GLOBALS['configFile']);
+		$this->readConfigFile();
 		
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
@@ -897,6 +878,98 @@ class pgmdb {
 
 		echo "\n";
 		
+	}
+	
+	// PRINT AN EXPORT FORMAT CHOOSER
+	function print_export_form () {
+		global $var_root;
+		
+		
+		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
+		echo "<input type=\"hidden\" name=\"function\" value=\"export\">\n";
+		echo "<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\">\n";
+		echo "<strong>Choose Export Format: </strong>\n";
+		
+		echo "<select name=\"type\">\n";
+		foreach ($this->export_types as $type) {
+			echo "<option>" . $type . "</option>\n";
+		}
+		echo "</select>\n";
+		
+		echo "<input type=\"submit\" value=\"go\" />\n</form>\n";
+	}
+	
+	// Cleanup old export temporary files
+	function export_cleanup() {
+		$files = glob($var_root."/export*");
+		//var_dump($files);
+		foreach ($files as $file) {
+				
+			if (filemtime($file) < time() - 86400) {
+				echo "<!-- Unlinking ".$file." -->\n";
+			} else {
+				echo "<!-- Allowing ".$file." to linger -->\n";
+			}
+			
+		}
+	}
+	
+	// Write export files
+	function export ($type) {
+		global $var_root;
+		
+		$this->export_cleanup();
+		
+		// load data ...
+		$this->process_records();
+		
+		$tempfile = tempnam($var_root,"export").'.csv';
+		$temphandle = fopen($tempfile,'w');
+		
+		echo "<p>Writing " . count($this->completeArray) . " records to " . $tempfile . "</p>\n";
+		
+		switch ($type) {
+			case "csv":
+				// Print Heading Row
+				fwrite($temphandle, "Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes\n");
+				
+				foreach ($this->completeArray as $record)
+				{
+					// Print Table Row
+					fwrite( $temphandle, 
+						$record['date'].","
+						.$record['odo'].","
+						.round($record['gals'],3).","
+						.round($record['price'],3).","
+						.round($record['tank_cost'],2).","
+						.$record['loc'].","
+						.$record['name'].","
+						.$record['topd'].","
+						.round($record['mpg'],1)
+						);
+				
+					// In the printer-friendly case, print a row with the note on file
+					if (isset($record['note']) && chop($record['note']) != "")
+						fwrite ($temphandle, 
+							",".chop($record['note']));
+
+					fwrite ($temphandle, "\n");
+				
+				}
+			
+				// Print units row / table footer
+				fwrite ($temphandle, "mm/dd/yyyy,,miles,gallons,USD,USD,,yes/no,MPG\n");
+			
+				fclose ($temphandle);
+				
+				echo "<p><a href=\"".$var_root.'/'.basename($tempfile)."\">Click here to download...</a></p>\n";
+				
+				//unlink($tempfile);
+				
+				break;
+			default:
+				echo "Export type not yet implemented.";
+		}
 	}
 	
 };
