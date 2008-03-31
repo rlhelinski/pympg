@@ -10,6 +10,7 @@ goals for post-1.0:
 *	Restructure classes to allow flat-file storage code to be easily replaced
 	*	Complete the filedb class
 	*	Complete the gnuplotctl class
+*	Support an option for low-pass filtering the waveform output
 
 goals for 1.0:
 . Object-oriented, modular code with little repetition

@@ -13,10 +13,10 @@
  
 class filedb {
 	
-	# A list of variables which _must_ be defined
+	# A list of variables which _must_ be defined before construction
 	var $global_variable_names = array('filedb_config_file', 'filedb_wfm_file', 'var_root');
 	
-	# File handles
+	# File handles so we can keep track of open ones
 	var $files_handles = array();
 
 	# Constructor
@@ -95,6 +95,8 @@ class filedb {
 	}
 	
 	function getConfig () {
+		// Should return the configuration record as an associative array
+		// I should only keep a handle on open files 
 		$newArray = array();
 		global $filedb_config_file;
 	

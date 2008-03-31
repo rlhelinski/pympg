@@ -14,9 +14,11 @@ TARBALL = pgmdb-$(VERSION)-r$(SVNREV).tar.bz2
 TAROPTS = --create --dereference --verbose --bzip2
 
 # The first rule is the default rule!
-install: 
-	mkdir var && chmod a+rwx var && echo "" > var/datafiles.txt \
-		chmod a+rw var/datafiles.txt ;
+install: $(SOURCES)
+	chmod -R a+r . 
+	mkdir -p var 
+	if [ ! -f "var/datafiles.txt" ] ; then echo "" > var/datafiles.txt ; fi
+	chmod -R a+rwx var
 
 release:
 	make $(TARBALL)

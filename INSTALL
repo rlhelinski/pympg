@@ -1,0 +1,29 @@
+To install:
+
+Step 1:
+	Check that you have PHP4 or PHP5 installed working. Create a directory where you can host the PHP scripts, and verify a simple script works. 
+
+Step 2: 
+	Get the files
+
+	From a release,	untar the release file:
+	tar -xvjf pgmdb-release-x.tar.bz2 
+
+	OR
+
+	From SVN, checkout the files:
+	svn co http://pgmdb.sf.net/svnroot/pgmdb/trunk
+
+Step 3:
+	Call make to set up permissions and files necessary for operation:
+	make install
+
+	Review and edit the local settings file:
+	localSettings.php
+
+Step 4:
+	Hopefully, you're done. 
+
+	If things don't work, make sure you check the error log of your web server (for Apache, this is at /var/log/httpd/error_log or /var/log/apache2/error_log). 
+	You may also enable the output of the PHP errors in your 'php.ini' file to save you the extra effort of checking the log file (note this might be a security concern for you). 
+	If all else fails, e-mail me. 
