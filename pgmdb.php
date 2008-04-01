@@ -572,11 +572,11 @@ class pgmdb {
 	
 	// ADD RECORD CODE
 	function print_add_record_form () {
-		global $configFile;
+		global $filedb_config_file;
 		global $var_root;
 		
 	    $datafile = $var_root.'/'.$_POST['datafile'];
-		$this->readConfigFile($configFile);
+		$this->readConfigFile($filedb_config_file);
 	    $index = array_search($_POST['datafile'],$this->configArray['file']);
 	    $password_hash = $this->configArray['password'][$index];
 	    
@@ -656,7 +656,7 @@ class pgmdb {
 	// TODO this funcion needs to be split up 
 	function print_new_file_form() {
 		global $var_root;
-		global $configFile;
+		global $filedb_config_file; // $configFile;
 		global $pageAddress;
 
 	   echo "<h2>Create New File</h2>\n";
@@ -686,10 +686,10 @@ class pgmdb {
 			   fclose($handle);
 		
 				// Create a backup copy. Failure of this is not fatal.
-				if (!copy($configFile, $configFile."~"))
+				if (!copy($filedb_config_file, $filedb_config_file."~"))
 					echo "Failed to create backup.\n";
 					
-				$this->readConfigFile($configFile);
+				$this->readConfigFile($filedb_config_file);
 				
 				$this->configArray['file'][] = $_POST['filename'];
 				$this->configArray['password'][] = $_POST['password1'];
@@ -699,7 +699,7 @@ class pgmdb {
 				foreach ($this->configArray['password'] as $password)
 					$passArray[] = "password[]=".md5($password);
 		
-				$handle = fopen($configFile,"w");
+				$handle = fopen($filedb_config_file,"w");
 				if ($handle === false || 
 				fwrite($handle, implode("&",$fileArray)."\n")===false ||
 				fwrite($handle, implode("&",$passArray)."\n")===false )
