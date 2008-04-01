@@ -139,95 +139,100 @@ class pgmdb {
 	// TODO change name to compile rather than plot
 	// DEFER
 	function plotWaveform($wfmFileName) {
+		global $var_root;
 		global $gnuplot_path;
 		global $recordArray;
 		
 		// Check that the GNUPLOT path is correct
-		echo "<!-- ";
+		echo "<!--\n";
 		$output = system($gnuplot_path." --version", $retval);
 		echo " -->\n";
+
 		if ($retval != 0)
 			die("GNUPLOT path variable incorrect(".$gnuplot_path."), GNUPLOT not found.");
+
 		$descriptorspec = array(
 			0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
 			1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
-			2 => array("file", "var/gnuplot-stderr.txt", "w") // stderr is a file to write to
+			2 => array("pipe", "w") // stderr is a file to write to
 		);
 	
-		$cwd = 'var';
+		$cwd = $var_root;
 		$env = array();
-	//	$env = array('some_option' => 'aeiou');
 	
-	// Note that we've already changed the working directory to the 
-	// variable root!
+		// Note that we've already changed the working directory to the 
+		// variable root!
 		reset($this->recordArray);
-	
+		
 		$programme = "reset\n" .
-				"set style line 1 lt 1 lw 2 pt 1 ps 0.4\n" .
-				"set style line 2 lt 2 lw 2 pt 2 ps 0.4\n" .
-				"set style line 3 lt 3 lw 2 pt 3 ps 0.4\n" .
-				"set style line 4 lt 4 lw 2 pt 4 ps 0.4\n" .
-				"set style line 5 lt 9 lw 5 pt 5 ps 0.4\n" .
-				"set style line 6 lt 7 lw 5 pt 6 ps 0.4\n" .
-				"set style line 7 lt 8 lw 5 pt 9 ps 0.4\n" .
-				"set style line 8 lt 5 lw 5 pt 5 ps 0.4\n" .
-				"set style line 9 lt -1 lw 5 pt 7 ps 0.4\n" .
-				"set style line 10 lt 0 lw 15 pt 4 ps 0.6\n" .
-				"set terminal png small\n" .
-				"set size 0.8, 0.8\n" .
-				"set autoscale\n" .
-				"set origin 0,0\n" .
-				"set output 'mpg.png'\n" .
-				"set title 'Gas Mileage Statistics (plotted ".date("m/d/Y").")'\n" .
-				"set multiplot\n" .
-				"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
-				"set ylabel 'Miles/Gallon' tc lt 1\n" .
-				"set y2label 'Miles/Day' tc lt 2\n" .
-				"set xdata time\n" .
-				"set timefmt '%s'\n" . # seconds since UNIX Epoch
-				"set xtics rotate by 90\n" .
-				"set ytics nomirror tc lt 1\n" .
-				"set y2tics\n" .
-				"plot " .
-				"'fuelstat.wfm' using 1:7 title 'Gas Mileage (mi/gal)' " .
-				"with lines linestyle 1 axes x1y1, " .
-				"'fuelstat.wfm' using 1:6 title 'Average Velocity (mi/day)' " .
-				" with lines linestyle 2 axes x1y2 " .
-				"\n" .
-				"unset multiplot\n" .
-				"set output 'fuelcost.png'\n" .
-				"set title 'Fuel Cost Statistics (plotted ".date("m/d/Y").")'\n" .
-				"set multiplot\n" .
-				"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
-				"set ylabel 'Dollars/Gallon'\n" .
-				"set y2label 'Dollars/Tank'\n" .
-				"plot " .
-				"'fuelstat.wfm' using 1:4 title 'Fuel Cost (dollars/gal)' " .
-				"with lines linestyle 1 axes x1y1," .
-				"'fuelstat.wfm' using 1:5 title 'Tank Cost (dollars/tank)' " .
-				"with lines linestyle 2 axes x1y2" .
-				"\n";
+			"set style line 1 lt 1 lw 2 pt 1 ps 0.4\n" .
+			"set style line 2 lt 2 lw 2 pt 2 ps 0.4\n" .
+			"set style line 3 lt 3 lw 2 pt 3 ps 0.4\n" .
+			"set style line 4 lt 4 lw 2 pt 4 ps 0.4\n" .
+			"set style line 5 lt 9 lw 5 pt 5 ps 0.4\n" .
+			"set style line 6 lt 7 lw 5 pt 6 ps 0.4\n" .
+			"set style line 7 lt 8 lw 5 pt 9 ps 0.4\n" .
+			"set style line 8 lt 5 lw 5 pt 5 ps 0.4\n" .
+			"set style line 9 lt -1 lw 5 pt 7 ps 0.4\n" .
+			"set style line 10 lt 0 lw 15 pt 4 ps 0.6\n" .
+			"set terminal png small\n" .
+			"set size 0.8, 0.8\n" .
+			"set autoscale\n" .
+			"set origin 0,0\n" .
+			"set output 'mpg.png'\n" .
+			"set title 'Gas Mileage Statistics (plotted ".date("m/d/Y").")'\n" .
+			"set multiplot\n" .
+			"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
+			"set ylabel 'Miles/Gallon' tc lt 1\n" .
+			"set y2label 'Miles/Day' tc lt 2\n" .
+			"set xdata time\n" .
+			"set timefmt '%s'\n" . # seconds since UNIX Epoch
+			"set xtics rotate by 90\n" .
+			"set ytics nomirror tc lt 1\n" .
+			"set y2tics\n" .
+			"plot " .
+			"'fuelstat.wfm' using 1:7 title 'Gas Mileage (mi/gal)' " .
+			"with lines linestyle 1 axes x1y1, " .
+			"'fuelstat.wfm' using 1:6 title 'Average Velocity (mi/day)' " .
+			" with lines linestyle 2 axes x1y2 " .
+			"\n" .
+			"unset multiplot\n" .
+			"set output 'fuelcost.png'\n" .
+			"set title 'Fuel Cost Statistics (plotted ".date("m/d/Y").")'\n" .
+			"set multiplot\n" .
+			"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
+			"set ylabel 'Dollars/Gallon'\n" .
+			"set y2label 'Dollars/Tank'\n" .
+			"plot " .
+			"'fuelstat.wfm' using 1:4 title 'Fuel Cost (dollars/gal)' " .
+			"with lines linestyle 1 axes x1y1," .
+			"'fuelstat.wfm' using 1:5 title 'Tank Cost (dollars/tank)' " .
+			"with lines linestyle 2 axes x1y2" .
+			"\n";
 	
 	//	echo "<pre>".$programme."</pre>\n";
-		
-		$process = proc_open($GLOBALS['gnuplot_path'], $descriptorspec, $pipes, $cwd, $env);
+
+		$process = proc_open($gnuplot_path, $descriptorspec, $pipes, $cwd, $env);
 	
 		if (is_resource($process)) {
 			fwrite($pipes[0], $programme);
 			fclose($pipes[0]);
 		
-			echo "<!-- ";
-			echo stream_get_contents($pipes[1]);
-			echo "-->\n";
+			echo "<!-- STDOUT\n"
+				. stream_get_contents($pipes[1])
+				. "\nSTDERR\n"
+				. stream_get_contents($pipes[2])
+				. "\n";
 			fclose($pipes[1]);
+			fclose($pipes[2]);
 			
 			// It is important that you close any pipes before calling
 			// proc_close in order to avoid a deadlock
 			$return_value = proc_close($process);
 		
-			echo "<!-- GNUPLOT returned $return_value -->\n";
+			echo "GNUPLOT returned $return_value\n-->\n";
 		} else {
-			die( "Couldn't open pipe to GNUPLOT.");
+			die( "Couldn't open pipe to GNUPLOT (".$gnuplot_path.").");
 		}
 	}
 
