@@ -14,7 +14,7 @@
 class filedb {
 	
 	# A list of variables which _must_ be defined before construction
-	var $global_variable_names = array('filedb_config_file', 'filedb_wfm_file', 'var_root');
+	var $global_variable_names = array('var_root', 'filedb_config_file');
 	
 	# File handles so we can keep track of open ones
 	var $files_handles = array();

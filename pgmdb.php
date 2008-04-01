@@ -136,17 +136,18 @@ class pgmdb {
 	}
 	
 	// TODO move the gnuplot-controlling code to a different class
+	// TODO change name to compile rather than plot
 	// DEFER
 	function plotWaveform($wfmFileName) {
-		
+		global $gnuplot_path;
 		global $recordArray;
 		
 		// Check that the GNUPLOT path is correct
 		echo "<!-- ";
-		$output = system($GLOBALS['gnuplot_path']." --version", $retval);
+		$output = system($gnuplot_path." --version", $retval);
 		echo " -->\n";
 		if ($retval != 0)
-			die("GNUPLOT path variable incorrect.");
+			die("GNUPLOT path variable incorrect(".$gnuplot_path."), GNUPLOT not found.");
 		$descriptorspec = array(
 			0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
 			1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
@@ -758,12 +759,12 @@ class pgmdb {
 	
 	// WRITE WAVEFORM AND PLOT CODE
 	function display_waveform () {
-		global $wfmFileName;
+		global $wfm_file;
 		global $var_root;
 		
 		$records = 0;
 				
-	    if (($wfmHandle = fopen($wfmFileName,"w"))!==FALSE)
+	    if (($wfmHandle = fopen($wfm_file,"w"))!==FALSE)
 	      {
 			if (file_exists($var_root.'/'.$_POST['datafile']))
 			  {
@@ -788,7 +789,7 @@ class pgmdb {
 			    	die ("I/O error.");
 			    }
 				
-				echo "<p>Waveform file: <tt><a href=\"".$wfmFileName."\">".$wfmFileName."</a></tt></p>\n";
+				echo "<p>Waveform file: <tt><a href=\"".$wfm_file."\">".$wfm_file."</a></tt></p>\n";
 		
 				foreach ($this->completeArray as $record) 
 				{
@@ -821,7 +822,7 @@ class pgmdb {
 		
 			    fclose($wfmHandle);
 		
-				$this->plotWaveform($wfmFileName);
+				$this->plotWaveform($wfm_file);
 			    		
 			  }
 			else {
@@ -830,7 +831,7 @@ class pgmdb {
 	
 	      }
 	    else {
-	      echo "Couldn't open ".$wfmFileName." for writing.\n";
+	      echo "Couldn't open '".$wfm_file."' for writing.\n";
 	    }
 
 	    echo "<img src=\"var/mpg.png\" alt=\"Gas Mileage\">\n";
