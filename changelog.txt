@@ -4,9 +4,12 @@ Version:1.0
 Legend: (*) denotes not done, (.) denotes done, (x) denotes canceled
 
 goals for post-1.0: 
+*	Fix problem in print view with slashes not being removed
+*	Improve input sanitization
+*	Remove controls from print view
 .	Export to spreadsheet (CSV) format(s)
-.	Added CSS to Makefile rule
-.	Changed mode of datafiles.txt in install rule
+.	Add CSS to Makefile rule
+.	Change mode of datafiles.txt in install rule
 *	Restructure classes to allow flat-file storage code to be easily replaced
 	*	Complete the filedb class
 	*	Complete the gnuplotctl class
