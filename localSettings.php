@@ -19,4 +19,7 @@ $gnuplot_path = exec('which gnuplot');
 $filedb_config_file = $var_root."/datafiles.txt";
 $wfm_file = $var_root."/fuelstat.wfm";
 
+# To bring date formatting up to standards
+date_default_timezone_set(America/New_York);
+
 ?>
