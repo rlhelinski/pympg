@@ -16,10 +16,11 @@ $gnuplot_path = exec('which gnuplot');
 
 # Settings for flat file record storage
 # TODO change this to $filedb_config = $var_root."/datafiles";
-$filedb_config_file = $var_root."/datafiles.txt";
+$filedb_config_file = $var_root."/config.dat";
+$filedb_record_ext = 'dat'; # kind of arbitrary
+
 $wfm_file = $var_root."/fuelstat.wfm";
 
 # To bring date formatting up to standards
-date_default_timezone_set(America/New_York);
-
+date_default_timezone_set('America/New_York');
 ?>

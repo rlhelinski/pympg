@@ -21,7 +21,7 @@ class pgmdb {
 	);
 	
 	// this data should actually stay here
-	var $configArray = array();
+	//var $configArray = array();
 	var $carArray = array();
 	var $recordArray = array();
 	var $completeArray = array();
@@ -30,109 +30,7 @@ class pgmdb {
 	var $database;
 	
 	function pgmdb() {
-		$database = new filedb();
-	}
-	
-	// TODO file-driven code needs to be replaced with call to database->getConfig()
-	// imported
-	function readConfigFile() {
-		$newArray = array();
-		global $filedb_config_file;
-	
-		if (count($this->configArray)>0)
-			return;
-		
-		if (($handle = fopen($filedb_config_file, "r"))===false) {
-			debug_print_backtrace();
-			die( "Couldn't open ".$filedb_config_file);
-		}
-			
-		while(!feof($handle)) {
-			if (($buffer = fgets($handle, 4096))!==false)
-			{
-				$buffer = rtrim ($buffer);
-				parse_str($buffer,$newArray);
-	//			$configArray[] = $newArray;
-				$this->configArray = array_merge($this->configArray,$newArray);
-			}
-		}
-	//	echo "<pre>";
-	//	print_r($configArray);
-	//	echo "</pre>";
-		
-	}
-	
-	// TODO needs to be replaced with a call to database->getVehicleRecords()
-	// imported
-	function readDataFile($fileName) {
-	
-		if (count($this->carArray)>0)
-			return;
-	
-		if (($handle = fopen($fileName, "r"))===false) {
-			debug_print_backtrace();
-			die ("Couldn't open ".$fileName);
-		}
-	
-		while(!feof($handle)) {
-			$newRecord = array();
-	
-			if (($buffer = fgets($handle, 4096))!==false) {
-				$buffer = trim($buffer);
-				parse_str($buffer,$newRecord);
-				# The first record describes the vehicle
-				if (count($this->carArray)>0)
-					$this->recordArray[] = $newRecord;
-				else 
-					$this->carArray = $newRecord;
-			}
-		}
-	
-	//	echo "<pre>";
-	//	print_r($carArray);
-	//	print_r($recordArray);
-	//	echo "</pre>";
-	}
-	
-	// TODO needs to be replaced with a call to database->addRefuelRecord
-	// imported
-	function addRecord ($filename, $record) {
-		$newstring = http_build_query($record)."\n";
-	
-		// Let's make sure the file exists and is writable first.
-		if (is_writable($filename)) {
-			// Create a backup copy. This is not critical
-		 
-			if (!copy($filename, $filename."~"))
-			    echo "<div class='alert'>Failed to create backup.</div>\n";
-	
-			if (!$handle = fopen($filename, 'a')) {
-				echo "<div class='alert'>Cannot open file ($filename)</div>\n";
-				exit;
-			}
-	
-			if (fwrite($handle, $newstring) === FALSE) {
-				echo "<div class='alert'>Cannot write to file ($filename)</div>\n";
-				exit;
-			}
-		 
-			echo "<div class='notice'>Successfully added record to <tt>".$filename."</tt></div>\n";
-			
-			$this->process_records();
-			
-			echo "<P>New miles/gallon estimate: <b>"
-				.number_format($this->completeArray[count($this->completeArray)-1]['mpg'],2)
-				." mpg</b></P>\n";
-			
-			# Empty the fields to be printed in the form (not working)
-			$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
-	
-			fclose($handle);
-	
-		} else {
-			echo "<div class='alert'>The file $filename is not writable</div>\n";
-		}
-		
+		$this->database = new filedb();
 	}
 	
 	// TODO move the gnuplot-controlling code to a different class
@@ -241,7 +139,9 @@ class pgmdb {
 		global $var_root;
 
 	    # We read the file here
-		$this->readDataFile($var_root.'/'.$_POST['datafile']);
+		$this->database->getVehicle($_POST['datafile']);
+		
+		$recordArray = &$this->database->recordArray;
 
 		# Initialize global stat variables
 		$this->globalStats['gals'] = 0;
@@ -254,7 +154,7 @@ class pgmdb {
 		$records = -1;
 		$format = '%m/%d/%Y';
 
-		foreach ($this->recordArray as $record)
+		foreach ($recordArray as $record)
 		{
 			$records++;
 
@@ -336,18 +236,22 @@ class pgmdb {
 	function print_summary () {
 		global $var_root;
 		$records = -1;
-		
+
 	    # Call to produce the big table
 		$this->process_records();
-
-		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
+		
+		$carArray = &$this->database->carArray;
+		$recordArray = &$this->database->recordArray;
+		
+//var_dump($this->database->vehicleArray);
+		echo "<h2>".$carArray['make']." ".$carArray['model']." Gas Mileage Summary</h2>\n";
 		
 		$this->print_vehicle_info();
 
-		if (count($this->recordArray)==0) {
+		if (count($recordArray)==0) {
 			echo "<p>This file contains no records. Please use the 'record'" .
 					" function and add at least two fuel records.</p>\n";
-			return;
+			return false;
 		}
 		
 		echo "<table class=\"summary\">\n";
@@ -434,6 +338,7 @@ class pgmdb {
 	
 		
 		
+		return true;
 	}
 
 
@@ -441,18 +346,20 @@ class pgmdb {
 	function print_friendly_records () {
 		global $var_root;
 		$records = -1;
+		$carArray = &$this->database->carArray;
+		$recordArray = &$this->database->recordArray;
 		
 	    # Call to produce the big table
 		$this->process_records();
 		
-		echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Summary</h2>\n";
+		echo "<h2>".$carArray['make']." ".$carArray['model']." Gas Mileage Summary</h2>\n";
 		
 		$this->print_vehicle_info();
 
-		if (count($this->recordArray)==0) {
+		if (count($recordArray)==0) {
 			echo "<p>This file contains no records. Please use the 'record'" .
 					" function and add at least two fuel records.</p>\n";
-			return;
+			return false;
 		}
 		
 		echo "<table border=\"1\">\n";
@@ -530,12 +437,14 @@ class pgmdb {
 			."<tr><td>Average Gas Mileage: </td><td><b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)."</b> </td><td>mpg<td></td></tr>\n"
 			."</table>\n"
 			;
-		
+		return true;
 	} 
 	
 	// PRINT GAS MILEAGE STATISTICS
 	function print_stats_detailed () {
 		# Create references for easy access
+		$carArray = &$this->database->carArray;
+		$recordArray = &$this->database->recordArray;
 		
 		echo "<h2>Detailed Statistics</h2>\n"
 			."Latest Gas Mileage: <b>".round(($this->globalStats['last_odo']-$this->globalStats['last_last_odo'])/$this->globalStats['last_gals'],2)."</b> mpg<br>\n"
@@ -556,11 +465,11 @@ class pgmdb {
 			// The actual maximum range is the maximum distance between fueling
 			// The theoretical maximum range is the range one could drive with 
 			// average or maximum gas mileage with 100% of the tank's fuel.
-			."Average Range: <b>".round($this->globalStats['miles']/(count($this->recordArray)))
+			."Average Range: <b>".round($this->globalStats['miles']/(count($recordArray)))
 			."</b> miles<br>\n"
 			."Maximum Range: <b>".$this->globalStats['max_range']."</b> miles<br>\n"
-			."Theoretical Range: <b>".round($this->carArray['tanksize']*$this->globalStats['miles']/$this->globalStats['gals'])
-			." - ".round($this->carArray['tanksize']*$this->globalStats['max_mpg'])."</b> miles<br>\n";
+			."Theoretical Range: <b>".round($carArray['tanksize']*$this->globalStats['miles']/$this->globalStats['gals'])
+			." - ".round($carArray['tanksize']*$this->globalStats['max_mpg'])."</b> miles<br>\n";
 			$estimated_mileage = $this->globalStats['last_odo']+($this->globalStats['miles']/$this->globalStats['days'])*(time()-strtotime($this->globalStats['last_date']))/86400;
 			$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($this->globalStats['miles']/$this->globalStats['days']),1)
 			;
@@ -582,9 +491,9 @@ class pgmdb {
 		global $var_root;
 		
 	    $datafile = $var_root.'/'.$_POST['datafile'];
-		$this->readConfigFile($filedb_config_file);
-	    $index = array_search($_POST['datafile'],$this->configArray['file']);
-	    $password_hash = $this->configArray['password'][$index];
+		$this->database->getConfig();
+	    $index = array_search($_POST['datafile'],$this->database->configArray['file']);
+	    $password_hash = $this->database->configArray['password'][$index];
 	    
 	    echo "<h2>Add Refueling Record</h2>\n";
 	    echo "<p>Data File Name: <tt><a href=\"".$datafile."\">"
@@ -608,12 +517,22 @@ class pgmdb {
 		// Attempt to add the record if the date is valid
 	    if ( isset($_POST['date']) &&($date_UTC = strtotime($_POST['date']))!==false )
 		{
-			if (md5($_POST['password']) != rtrim($password_hash))
+			if (md5(rtrim($_POST['password'])) != rtrim($password_hash))
 			{
 				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
-				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+				echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
 			} else {
-				$this->addRecord($datafile,$record);
+				$this->database->addRecord($_POST['datafile'],$record);
+		        echo "<div class='notice'>Successfully added record to <tt>".$_POST['datafile']."</tt></div>\n";
+        
+/*				# Empty the fields to be printed in the form (not working)
+				$date = $odo = $gals = $price = $loc = $name = $topd = $note = "";
+*/				
+		        $this->process_records();
+		        
+		        echo "<P>New miles/gallon estimate: <b>"
+		                .number_format($this->completeArray[count($this->completeArray)-1]['mpg'],2)
+		                ." mpg</b></P>\n";
 			}
 	
 		} else {
@@ -655,7 +574,6 @@ class pgmdb {
 	
 	   echo "<p>NOTES: The gas mileage calculation scheme assumes that you top-off each time you fill. If you do not top off, the gas mileage cannot be accurately calculated. Do not use commas in numerical fields. Do not use the ampersand (&) character. The database file (plain text) can be stored for off-line backup or modification purposes via the link above. </p>";
 	
-		 
 	}
 	
 	// ADD NEW DATA STORAGE FILE CODE
@@ -676,54 +594,7 @@ class pgmdb {
 			 }
 			else 
 			# begin file-oriented stuff
-	       if ( ! file_exists($var_root.'/'.$_POST['filename']) )
-		 	{
-			   $handle = fopen($var_root.'/'.$_POST['filename'],"x");
-			   $headerstring = "year=".$_POST['year']."&make=".$_POST['make']
-			   ."&model=".$_POST['model']."&owner=".$_POST['owner']."&tanksize="
-			   .$_POST['tanksize']."\n";
-	
-			   if (fwrite($handle, $headerstring) === FALSE) {
-			     die( "Cannot write to file (".$var_root.'/'.$_POST['filename'].")");
-			   }
-			   
-			   echo "<div class='notice'>Successfully created data file ".$var_root.'/'.$_POST['filename']."</div>\n";
-			   
-			   fclose($handle);
-		
-				// Create a backup copy. Failure of this is not fatal.
-				if (!copy($filedb_config_file, $filedb_config_file."~"))
-					echo "Failed to create backup.\n";
-					
-				$this->readConfigFile($filedb_config_file);
-				
-				$this->configArray['file'][] = $_POST['filename'];
-				$this->configArray['password'][] = $_POST['password1'];
-		
-				foreach ($this->configArray['file'] as $file)
-					$fileArray[] = "file[]=".$file;
-				foreach ($this->configArray['password'] as $password)
-					$passArray[] = "password[]=".md5($password);
-		
-				$handle = fopen($filedb_config_file,"w");
-				if ($handle === false || 
-				fwrite($handle, implode("&",$fileArray)."\n")===false ||
-				fwrite($handle, implode("&",$passArray)."\n")===false )
-				{
-					die( "Couldn't add the new file to the list of data files.<br>\n");
-				}
-			     
-			   echo "<div class='notice'>Successfully added new file to list of data files, "
-			   	."<a href=\"$pageAddress?datafile=".$_POST['filename']
-			   	."&function=record\">Start adding records for this vehicle</a>.</div>\n";
-			   fclose($handle);
-			   
-			   // TODO should switch to 'record' function at this point.
-		 	}
-	       else { 
-	       	echo "<div class='alert'>File already exists.</div>\n";
-	       }
-	       # end file-oriented stuff
+	       $this->database->newVehicle($_POST['filename']);
 	     }   
 	
 	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
@@ -746,6 +617,7 @@ class pgmdb {
 	# can't link to the file for compatibility
 	function print_vehicle_info () {
 		global $var_root;
+		$carArray = &$this->database->carArray;
 		
 		echo "<p>Data File Name: <tt>";
 		#if ($_POST['function'] != "print")
@@ -756,9 +628,9 @@ class pgmdb {
 		echo "</tt>, Report Format: <b>Data Waveforms</b>"
 			."</p>\n";
 		
-		echo "<p>Year: <b>".$this->carArray['year']."</b>, Make: <b>".$this->carArray['make']
-			."</b>, Model: <b>".$this->carArray['model']."</b>, Owner: <b>".$this->carArray['owner']
-			."</b>, Tank Size: <b>".$this->carArray['tanksize']."</b></p>\n";
+		echo "<p>Year: <b>".$carArray['year']."</b>, Make: <b>".$carArray['make']
+			."</b>, Model: <b>".$carArray['model']."</b>, Owner: <b>".$carArray['owner']
+			."</b>, Tank Size: <b>".$carArray['tanksize']."</b></p>\n";
 			
 	}
 	
@@ -776,7 +648,7 @@ class pgmdb {
 //				$this->readDataFile($_POST['datafile']);
 				$this->process_records();
 								
-				echo "<h2>".$this->carArray['make']." ".$this->carArray['model']." Gas Mileage Trends</h2>\n";
+				echo "<h2>".$carArray['make']." ".$carArray['model']." Gas Mileage Trends</h2>\n";
 				
 				$this->print_vehicle_info();
 
@@ -846,16 +718,16 @@ class pgmdb {
 		
 	// PRINT DATABASE QUERY TOOL CODE
 	function print_function_chooser () {
-		$this->readConfigFile();
+		$this->database->getConfig();
 		
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
 	
-		if ( count($this->configArray['file']) > 0 )
+		if ( count($this->database->configArray['file']) > 0 )
 		{
 			echo "Data File: ";
 			echo "<select name=\"datafile\">";
-			foreach ( $this->configArray['file'] as $dataFile) {
+			foreach ( $this->database->configArray['file'] as $dataFile) {
 				echo "<option";
 				if (isset($_POST['datafile']) && $_POST['datafile']==$dataFile)
 					echo " selected";
@@ -886,6 +758,7 @@ class pgmdb {
 		
 	}
 	
+	// TODO move all this to an export class
 	// PRINT AN EXPORT FORMAT CHOOSER
 	function print_export_form () {
 		global $var_root;
@@ -907,6 +780,7 @@ class pgmdb {
 	
 	// Cleanup old export temporary files
 	function export_cleanup() {
+		global $var_root;
 		$files = glob($var_root."/export*");
 		//var_dump($files);
 		foreach ($files as $file) {

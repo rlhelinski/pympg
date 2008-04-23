@@ -38,8 +38,8 @@ if (isset($_POST['function'])) {
 
 	switch ($_POST['function']) {
 		case "summary":
-			$gasMileage->print_summary();
-			$gasMileage->print_stats_summary();
+			$gasMileage->print_summary() &&
+			$gasMileage->print_stats_summary() &&
 			$gasMileage->print_stats_detailed();
 			
 			break;
