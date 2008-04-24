@@ -57,10 +57,11 @@ class pgmdb {
 	
 		$cwd = $var_root;
 		$env = array();
+		
+		$recordArray = $this->database->recordArray;
 	
-		// Note that we've already changed the working directory to the 
-		// variable root!
-		reset($this->recordArray);
+		// Note that we've already changed the working directory to the variable root!
+		//reset($recordArray);
 		
 		$programme = "reset\n" .
 			"set style line 1 lt 1 lw 2 pt 1 ps 0.4\n" .
@@ -80,7 +81,7 @@ class pgmdb {
 			"set output 'mpg.png'\n" .
 			"set title 'Gas Mileage Statistics (plotted ".date("m/d/Y").")'\n" .
 			"set multiplot\n" .
-			"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
+			"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
 			"set ylabel 'Miles/Gallon' tc lt 1\n" .
 			"set y2label 'Miles/Day' tc lt 2\n" .
 			"set xdata time\n" .
@@ -98,7 +99,7 @@ class pgmdb {
 			"set output 'fuelcost.png'\n" .
 			"set title 'Fuel Cost Statistics (plotted ".date("m/d/Y").")'\n" .
 			"set multiplot\n" .
-			"set xlabel 'Date (".$this->recordArray[1]['date']." - ".$this->recordArray[count($this->recordArray)-1]['date'].")' 0,-1\n" .
+			"set xlabel 'Date (".$recordArray[1]['date']." - ".$recordArray[count($recordArray)-1]['date'].")' 0,-1\n" .
 			"set ylabel 'Dollars/Gallon'\n" .
 			"set y2label 'Dollars/Tank'\n" .
 			"plot " .
@@ -111,7 +112,7 @@ class pgmdb {
 	//	echo "<pre>".$programme."</pre>\n";
 
 		$process = proc_open($gnuplot_path, $descriptorspec, $pipes, $cwd, $env);
-	
+		
 		if (is_resource($process)) {
 			fwrite($pipes[0], $programme);
 			fclose($pipes[0]);
@@ -639,6 +640,9 @@ class pgmdb {
 		global $wfm_file;
 		global $var_root;
 		
+		$carArray = &$this->database->carArray;
+		$recordArray = &$this->database->recordArray;
+		
 		$records = 0;
 				
 	    if (($wfmHandle = fopen($wfm_file,"w"))!==FALSE)
@@ -652,7 +656,7 @@ class pgmdb {
 				
 				$this->print_vehicle_info();
 
-				if (count($this->recordArray)==0) {
+				if (count($recordArray)==0) {
 					echo "<div class='notice'>This file contains no records. Please use the 'record'" .
 						" function and add at least two fuel records.</div>\n";
 					return;
