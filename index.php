@@ -53,6 +53,13 @@ if (isset($_POST['function'])) {
 				$gasMileage->print_export_form();
 			}
 			break;
+		case "import":
+			if (isset($_POST['type'])) {
+				$gasMileage->import($_POST['type']);
+			} else {
+				$gasMileage->print_import_form();
+			}
+			break;
 		case "plot":
 			$gasMileage->display_waveform();
 			break;

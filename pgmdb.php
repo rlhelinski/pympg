@@ -12,8 +12,9 @@ include_once('filedb.php');
  
 class pgmdb {
 	
-	var $function_list = array('summary','print','export','record','plot','create');
+	var $function_list = array('summary','print','import','export','record','plot','create');
 	var $export_types = array('csv');
+	var $import_types = array('csv');
 	
 	var $functionDesc = array (
 		"print" => "Reduced printer-friendly report",
@@ -767,7 +768,6 @@ class pgmdb {
 	function print_export_form () {
 		global $var_root;
 		
-		
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<input type=\"hidden\" name=\"function\" value=\"export\">\n";
 		echo "<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\">\n";
@@ -781,6 +781,28 @@ class pgmdb {
 		
 		echo "<input type=\"submit\" value=\"go\" />\n</form>\n";
 	}
+
+	// PRINT AN IMPORT FORMAT CHOOSER
+	function print_import_form () {
+		global $var_root;
+		
+		echo "<form enctype='multipart/form-data' action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
+		echo "<input type=\"hidden\" name=\"function\" value=\"import\">\n";
+		echo "<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\">\n";
+		echo "<strong>Choose Import Format: </strong>\n";
+		
+		echo "<select name=\"type\">\n";
+		foreach ($this->import_types as $type) {
+			echo "<option>" . $type . "</option>\n";
+		}
+		echo "</select>\n";
+		
+     	echo "<input type='hidden' name='MAX_FILE_SIZE' value='1000000000' >\n";
+		echo "<input type=\"file\" name=\"import_file\">\n";
+		
+		echo "<input type=\"submit\" value=\"go\" />\n</form>\n";
+	}
+	
 	
 	// Cleanup old export temporary files
 	function export_cleanup() {
@@ -788,9 +810,10 @@ class pgmdb {
 		$files = glob($var_root."/export*");
 		//var_dump($files);
 		foreach ($files as $file) {
-				
-			if (filemtime($file) < time() - 86400) {
+			$oldesttime = 10*60; // ten minutes
+			if (filemtime($file) < time() - $oldesttime) {
 				echo "<!-- Unlinking ".$file." -->\n";
+				unlink($file);
 			} else {
 				echo "<!-- Allowing ".$file." to linger -->\n";
 			}
@@ -815,27 +838,26 @@ class pgmdb {
 		switch ($type) {
 			case "csv":
 				// Print Heading Row
-				fwrite($temphandle, "Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes\n");
+				fwrite($temphandle, 'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n");
 				
 				foreach ($this->completeArray as $record)
 				{
-					// Print Table Row
+					// Print File Row
 					fwrite( $temphandle, 
 						$record['date'].","
 						.$record['odo'].","
 						.round($record['gals'],3).","
 						.round($record['price'],3).","
 						.round($record['tank_cost'],2).","
-						.$record['loc'].","
-						.$record['name'].","
-						.$record['topd'].","
-						.round($record['mpg'],1)
+						.'"'.$record['loc']."\","
+						.'"'.$record['name']."\","
+						.'"'.$record['topd']."\","
+						.round($record['mpg'],1).","
 						);
 				
 					// In the printer-friendly case, print a row with the note on file
 					if (isset($record['note']) && chop($record['note']) != "")
-						fwrite ($temphandle, 
-							",".chop($record['note']));
+						fwrite ($temphandle, "\"".chop($record['note'])."\"");
 
 					fwrite ($temphandle, "\n");
 				
@@ -850,6 +872,242 @@ class pgmdb {
 				
 				//unlink($tempfile);
 				
+				break;
+			default:
+				echo "Export type not yet implemented.";
+		}
+	}
+
+
+    /**
+     * Create a 2D array from a CSV string
+     * lewis [ at t] hcoms [d dot t] co [d dot t] uk
+     *
+     * @param mixed $data 2D array
+     * @param string $delimiter Field delimiter
+     * @param string $enclosure Field enclosure
+     * @param string $newline Line seperator
+     * @return
+     */
+    function parse_csv($data, $delimiter = ',', $enclosure = '"', $newline = "\n"){
+        $pos = $last_pos = -1;
+        $end = strlen($data);
+        $row = 0;
+        $quote_open = false;
+        $trim_quote = false;
+
+        $return = array();
+
+        // Create a continuous loop
+        for ($i = -1;; ++$i){
+            ++$pos;
+            // Get the positions
+            $comma_pos = strpos($data, $delimiter, $pos);
+            $quote_pos = strpos($data, $enclosure, $pos);
+            $newline_pos = strpos($data, $newline, $pos);
+
+            // Which one comes first?
+            $pos = min(($comma_pos === false) ? $end : $comma_pos, ($quote_pos === false) ? $end : $quote_pos, ($newline_pos === false) ? $end : $newline_pos);
+
+            // Cache it
+            $char = (isset($data[$pos])) ? $data[$pos] : null;
+            $done = ($pos == $end);
+
+            // It it a special character?
+            if ($done || $char == $delimiter || $char == $newline){
+
+                // Ignore it as we're still in a quote
+                if ($quote_open && !$done){
+                    continue;
+                }
+
+                $length = $pos - ++$last_pos;
+
+                // Is the last thing a quote?
+                if ($trim_quote){
+                    // Well then get rid of it
+                    --$length;
+                }
+
+                // Get all the contents of this column
+                $return[$row][] = ($length > 0) ? str_replace($enclosure . $enclosure, $enclosure, substr($data, $last_pos, $length)) : '';
+
+                // And we're done
+                if ($done){
+                    break;
+                }
+
+                // Save the last position
+                $last_pos = $pos;
+
+                // Next row?
+                if ($char == $newline){
+                    ++$row;
+                }
+
+                $trim_quote = false;
+            }
+            // Our quote?
+            else if ($char == $enclosure){
+
+                // Toggle it
+                if ($quote_open == false){
+                    // It's an opening quote
+                    $quote_open = true;
+                    $trim_quote = false;
+
+                    // Trim this opening quote?
+                    if ($last_pos + 1 == $pos){
+                        ++$last_pos;
+                    }
+
+                }
+                else {
+                    // It's a closing quote
+                    $quote_open = false;
+
+                    // Trim the last quote?
+                    $trim_quote = true;
+                }
+
+            }
+
+        }
+
+        return $return;
+    }
+
+	// Write export files
+	function import ($type) {
+		global $var_root;
+		
+		$this->export_cleanup();
+		
+		// load data ...
+		$this->process_records();
+		
+		
+		//echo "<p>Writing " . count($this->completeArray) . " records to " . $tempfile . "</p>\n";
+		var_dump($_FILES); 
+		echo "<br>";
+		var_dump($_POST);
+	   $filename = basename($_FILES['import_file']['name'], '.csv') . '.dat';
+	   $filename = str_replace("export","import", $filename);
+	   $uploadFile = $var_root. '/' . $filename;
+		echo "Trying name $filename<br>\n";
+	   
+		if (is_file($uploadFile)) {
+			echo "File exists, choosing new name";
+			$filename = tempnam($var_root,"import").'.dat';
+			
+		} else {
+			echo "Doesn't already exist.";
+		}
+		
+		
+		/*
+	
+	   if (!is_dir($FileRoot. '/' . $pagename)) 
+	      mkdir ($FileRoot . '/' . $pagename, $DirMode, true);
+	
+	   if (isset($_FILES) && count($_FILES) > 0) {
+	
+	      if (move_uploaded_file($_FILES['userfile']['tmp_name'], $uploadfile)) {
+	         chmod($uploadfile, $FileMode);
+	         $html .= "<div class='notice'>" .
+	            "File was received and written to: ".$uploadfile."</div>\n";
+	
+	      } else {
+	         $html .= "<div class='alert'>File upload failed.\n";
+	         switch ($_FILES['userfile']['error']) {
+	            case 1:
+	               $html .= '<p> The file is bigger than this PHP installation allows</p>';
+	               break;
+	            case 2:
+	               $html .= '<p> The file is bigger than this form allows</p>';
+	               break;
+	            case 3:
+	               $html .= '<p> Only part of the file was uploaded</p>';
+	               break;
+	            case 4:
+	               $html .= '<p> No file was uploaded</p>';
+	               break;
+	         }
+	         $html .= "</div>\n";
+	       echo "<!-- Here is some more debugging info:\n";
+	       print_r($_FILES);
+	       echo "-->\n";
+	      }
+	
+	   }
+*/
+		//if (($inputHandle = fopen($_FILES['import_file']['tmp_name'],'r'))===false) {
+		$inputName = $_FILES['import_file']['tmp_name'];
+		if (is_readable($inputName)) {
+			echo "File ".$inputName." opened for reading.";
+		} else {
+			die ("Couldn't open temp file.");
+		}
+		
+		
+		//if (($outputHandle = fopen($filename,'w'))===false)
+		$outputName = $var_root . '/' . $filename;
+		if (!file_exists($outputName) || is_writable($outputName))
+			echo "File $outputName opened for writing.";
+		else
+			die ("Couldn't open $outputName for writing.");
+		
+		
+		switch ($type) {
+			case "csv":
+				// Print Heading Row
+				$tmpline = file_get_contents($inputName /*, FILE_TEXT */); //fread($inputHandle, 1024);
+				echo $tmpline;
+				/*$fileLines = explode("\n",$tmpline);
+				
+				
+				foreach ($fileLines as $tmpline) {
+					$tmpline = preg_split("[,]")
+				}
+				*/
+				
+				$inputArray = $this->parse_csv($tmpline);
+				echo "<BR>INput: ";
+				var_dump($inputArray);
+				
+				/*//'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n"
+				foreach ($this->completeArray as $record)
+				{
+					// Print File Row
+					fwrite( $temphandle, 
+						$record['date'].","
+						.$record['odo'].","
+						.round($record['gals'],3).","
+						.round($record['price'],3).","
+						.round($record['tank_cost'],2).","
+						.'"'.$record['loc']."\","
+						.'"'.$record['name']."\","
+						.'"'.$record['topd']."\","
+						.round($record['mpg'],1).","
+						);
+				
+					// In the printer-friendly case, print a row with the note on file
+					if (isset($record['note']) && chop($record['note']) != "")
+						fwrite ($temphandle, "\"".chop($record['note'])."\"");
+
+					fwrite ($temphandle, "\n");
+				
+				}
+			
+				// Print units row / table footer
+				fwrite ($temphandle, "mm/dd/yyyy,,miles,gallons,USD,USD,,yes/no,MPG\n");
+			
+				fclose ($temphandle);
+				
+				echo "<p><a href=\"".$var_root.'/'.basename($tempfile)."\">Click here to download...</a></p>\n";
+				
+				//unlink($tempfile);
+*/				
 				break;
 			default:
 				echo "Export type not yet implemented.";

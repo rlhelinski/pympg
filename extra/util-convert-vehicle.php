@@ -5,7 +5,7 @@
  */
 	
 	$newArray = array();
-	$fileName = "var/ryan-matrix.txt";
+	$fileName = "../var/ryan-matrix.txt";
 	
 	$configArray = array();
 	
@@ -52,6 +52,6 @@
 	
 	$serialData = serialize($configArray);
 	
-	file_put_contents("var/ryan-matrix.dat",$serialData);
+	file_put_contents("../var/ryan-matrix.dat",$serialData);
 	
 ?>
