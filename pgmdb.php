@@ -806,6 +806,8 @@ class pgmdb {
 	
 	// Cleanup old export temporary files
 	function export_cleanup() {
+		
+		return; // skip this 
 		global $var_root;
 		$files = glob($var_root."/export*");
 		//var_dump($files);
@@ -988,9 +990,10 @@ class pgmdb {
 		
 		
 		//echo "<p>Writing " . count($this->completeArray) . " records to " . $tempfile . "</p>\n";
-		var_dump($_FILES); 
-		echo "<br>";
-		var_dump($_POST);
+		//var_dump($_FILES); 
+		//echo "<br>";
+		//var_dump($_POST);
+		
 	   $filename = basename($_FILES['import_file']['name'], '.csv') . '.dat';
 	   $filename = str_replace("export","import", $filename);
 	   $uploadFile = $var_root. '/' . $filename;
@@ -1062,7 +1065,7 @@ class pgmdb {
 			case "csv":
 				// Print Heading Row
 				$tmpline = file_get_contents($inputName /*, FILE_TEXT */); //fread($inputHandle, 1024);
-				echo $tmpline;
+				//echo $tmpline;
 				/*$fileLines = explode("\n",$tmpline);
 				
 				
@@ -1072,8 +1075,8 @@ class pgmdb {
 				*/
 				
 				$inputArray = $this->parse_csv($tmpline);
-				echo "<BR>INput: ";
-				var_dump($inputArray);
+				//echo "<BR>INput: <pre>";
+				//var_dump($inputArray);
 				
 				/*//'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n"
 				foreach ($this->completeArray as $record)
@@ -1107,7 +1110,41 @@ class pgmdb {
 				echo "<p><a href=\"".$var_root.'/'.basename($tempfile)."\">Click here to download...</a></p>\n";
 				
 				//unlink($tempfile);
+				 *
 */				
+				
+				$importArray = array();
+				
+				foreach ($inputArray as $row) {
+					// if the first column is not a date
+					 if (strtotime($row[0]) === false) {
+					 	echo "skipping row beginning with ".$row[0]."<br>\n"; 
+					 } else {
+					 	$importArray[] = array (
+					 		'date' => $row[0],
+					 		'odo' => $row[1],
+					 		'gals' => $row[2],
+					 		'price' => $row[3],
+					 		// ignore row 4
+					 		'loc' => $row[5],
+					 		'name' => $row[6],
+					 		'topd' => $row[7],
+					 		// ignore row 8
+					 		'note' => $row[9]
+					 	);
+					 }
+				}
+				
+				//var_dump($importArray);
+				//echo "</pre>\n";
+				
+				// get a new database object
+				$importObject = new filedb();
+				// stuff it with the table we have put together
+				$importObject->recordArray = $importArray;
+				
+				// write it to the file we have reserverd
+				
 				break;
 			default:
 				echo "Export type not yet implemented.";
