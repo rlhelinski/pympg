@@ -5,7 +5,9 @@
  */
 	
 	$newArray = array();
-	$fileName = "var/ryan-matrix.txt";
+	$fileName = "../var/ryan-matrix.txt";
+	
+	$filedb_config_file = "../var/datafiles.txt";
 	
 	$configArray = array();
 	
@@ -27,31 +29,10 @@
 	        }
 	}
 
-/*	
-    if (($handle = fopen($fileName, "r"))===false) {
-            debug_print_backtrace();
-            die ("Couldn't open ".$fileName);
-    }
-
-    while(!feof($handle)) {
-            $newRecord = array();
-
-            if (($buffer = fgets($handle, 4096))!==false) {
-                    $buffer = trim($buffer);
-                    parse_str($buffer,$newRecord);
-                    # The first record describes the vehicle
-                    if (count($configArray)>0)
-                            $configArray['records'][] = $newRecord;
-                    else 
-                            $configArray['info'] = $newRecord;
-            }
-    }
-
-	*/
 	var_dump ($configArray);
 	
 	$serialData = serialize($configArray);
 	
-	file_put_contents("var/config.dat",$serialData);
+	file_put_contents("../var/config.dat",$serialData);
 	
 ?>
