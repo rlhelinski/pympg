@@ -14,6 +14,9 @@ foreach ($_GET as $key => $val) {
 	$_POST[$key] = $val;
 }
 
+if (isset($_GET['debug']))
+	var_dump($_POST);
+
 ?>
 <html>
 <head>

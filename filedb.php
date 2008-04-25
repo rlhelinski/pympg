@@ -49,7 +49,7 @@ class filedb {
 	/* 
 	 * Standard API functions
 	 */
-	function newVehicle($name) {
+	function newVehicle($name, $table) {
 		global $var_root;
 		
 		$fileName = $var_root.'/'.$name;
@@ -59,27 +59,32 @@ class filedb {
 			$this->getConfig(); // make sure we have read any existing config
 			
 			// add vehicle to config
-			$this->configArray['file'][] = $_POST['filename'];
-			$this->configArray['password'][] = $_POST['password1'];
+			$this->configArray['file'][] = $table['filename'];
+			$this->configArray['password'][] = $table['password1'];
 			$this->saveConfig();
 			
 			// save vehicle info in data file
-			$this->vehicleArray = array();
-			$this->vehicleArray['info']['year'] = $_POST['year'];
-			$this->vehicleArray['info']['make'] = $_POST['make'];
-			$this->vehicleArray['info']['model'] = $_POST['model'];
-			$this->vehicleArray['info']['owner'] = $_POST['owner'];
-			$this->vehicleArray['info']['tanksize'] = $_POST['tanksize'];
+			$this->carArray = array();
+			$this->carArray['year'] = $table['year'];
+			$this->carArray['make'] = $table['make'];
+			$this->carArray['model'] = $table['model'];
+			$this->carArray['owner'] = $table['owner'];
+			$this->carArray['tanksize'] = $table['tanksize'];
+			
+/*			$vehicle
 			$this->vehicleArray['records'] = array();
 			
 			$success = file_put_contents($fileName, serialize($this->vehicleArray));
-			
+*/			
+			$this->saveVehicle($name);
+
 			if ($success===false) {
 				die("Failed to write file.");
 			}
 			
 	 	}
 	}
+	
 	
 	function getVehicle ($name) {
 		global $var_root;
@@ -97,7 +102,7 @@ class filedb {
 			
 			$success = unserialize(file_get_contents($fileName));
 			if ($success===false) {
-				die("Failed to read file.");
+				die("Failed to read file $fileName.");
 			} else {
 				$this->carArray = $success['info'];
 				$this->recordArray = $success['records'];
@@ -111,8 +116,8 @@ class filedb {
 		global $var_root;
 		$fileName = $var_root.'/'.$name;		
 		
-		// make sure opened first
-		$this->getVehicle($name);
+		// make sure opened first ( why? )
+		//$this->getVehicle($name);
 		
 		$success = file_put_contents($fileName, 
 			serialize(array(

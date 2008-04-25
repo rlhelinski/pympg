@@ -8,6 +8,7 @@
  * rendering HTML code for the controls and output. 
  *
  */
+include_once('stdlib.php');
 include_once('filedb.php');
  
 class pgmdb {
@@ -426,11 +427,13 @@ class pgmdb {
 
 	// PRINT GAS MILEAGE SUMMARY
 	function print_stats_summary () {
+		$carArray = &$this->database->carArray;
+		$recordArray = &$this->database->recordArray;
 		
 		echo "<h2>Gas Mileage Summary</h2>\n";
 		
 		echo "<table class=\"summary\">\n"
-			."<tr><td>Number of Records: </td><td><b>".count($this->recordArray)."</b></td><td>records</td></tr>\n"
+			."<tr><td>Number of Records: </td><td><b>".count($recordArray)."</b></td><td>records</td></tr>\n"
 			."<tr><td>Total Gallons Consumed: </td><td><b>".number_format(round($this->globalStats['gals']))."</b> </td><td>gallons<td></td></tr>\n"
 			."<tr><td>Total Miles Travelled: </td><td><b>".number_format($this->globalStats['miles'])."</b> </td><td>miles<td></td></tr>\n"
 			."<tr><td>Total Days on Record: </td><td><b>".$this->globalStats['days']."</b> (<b>".round($this->globalStats['days']/365.25,2)."</b>) </td><td>days (years)</td></tr>\n"
@@ -454,7 +457,7 @@ class pgmdb {
 			."Average Gas Mileage: <b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)
 			."</b> miles/gallon<br>\n"
 			."Maxiumum Gas Mileage: <b>".round($this->globalStats['max_mpg'],1)."</b> miles/gallon<br>\n"
-			."Average Days Between Refeuling: <b>".round($this->globalStats['days']/(count($this->recordArray)-1))."</b> days<br>\n"
+			."Average Days Between Refeuling: <b>".round($this->globalStats['days']/(count($recordArray)-1))."</b> days<br>\n"
 			."Average Miles per Day: <b>".round($this->globalStats['miles']/$this->globalStats['days'])
 			."</b> miles/day<br>\n"
 			."Estimated Miles per Year: <b>"
@@ -522,7 +525,9 @@ class pgmdb {
 			if (md5(rtrim($_POST['password'])) != rtrim($password_hash))
 			{
 				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
-				echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+				// don't print this unless you need to
+				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+				
 			} else {
 				$this->database->addRecord($_POST['datafile'],$record);
 		        echo "<div class='notice'>Successfully added record to <tt>".$_POST['datafile']."</tt></div>\n";
@@ -596,7 +601,7 @@ class pgmdb {
 			 }
 			else 
 			# begin file-oriented stuff
-	       $this->database->newVehicle($_POST['filename']);
+	       $this->database->newVehicle($_POST['filename'], $_POST);
 	     }   
 	
 	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
@@ -786,21 +791,30 @@ class pgmdb {
 	function print_import_form () {
 		global $var_root;
 		
+		print_alert("EXPERIMENTAL!");
+		
 		echo "<form enctype='multipart/form-data' action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<input type=\"hidden\" name=\"function\" value=\"import\">\n";
-		echo "<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\">\n";
-		echo "<strong>Choose Import Format: </strong>\n";
+//		echo "<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\">\n";
+     	echo "<input type='hidden' name='MAX_FILE_SIZE' value='1000000000' >\n";
+
+		echo "<table>\n";
+		echo "<tr><td>File Format: </td>\n<td>";
 		
 		echo "<select name=\"type\">\n";
 		foreach ($this->import_types as $type) {
 			echo "<option>" . $type . "</option>\n";
 		}
-		echo "</select>\n";
+		echo "</select></td></tr>\n";
 		
-     	echo "<input type='hidden' name='MAX_FILE_SIZE' value='1000000000' >\n";
-		echo "<input type=\"file\" name=\"import_file\">\n";
+		echo "<tr><td>File:</td><td><input type=\"file\" name=\"import_file\"></td></tr>\n";
 		
-		echo "<input type=\"submit\" value=\"go\" />\n</form>\n";
+		echo "<tr><td>Password: </td><td><input type='text' name='password1'></td></tr>\n";
+		echo "<tr><td>Repeat: </td><td><input type='text' name='password2'></td></tr>\n";
+		
+		echo "<tr><td></td><td><input type=\"submit\" value=\"go\" /></td></tr>\n";
+
+		echo "</table>\n</form>\n";
 	}
 	
 	
@@ -840,6 +854,24 @@ class pgmdb {
 		switch ($type) {
 			case "csv":
 				// Print Heading Row
+				//var_dump($this->database->carArray);
+				/*
+array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota" 
+["model"]=>  string(9) "Matrix XR" ["owner"]=>  string(13) "Ryan Helinski" 
+["tanksize"]=>  string(4) "13.2" 
+["serv_interval"]=>  string(4) "5000" 
+["serv_offset"]=>  string(1) "0" }*/
+				fwrite($temphandle, 
+					"YEAR,".$this->database->carArray['year']
+					.",MAKE,".$this->database->carArray['make']
+					.",MODEL,".$this->database->carArray['model']
+					.",OWNER,".$this->database->carArray['owner']
+					.",TANKSIZE,".$this->database->carArray['tanksize']
+					.",SERV_INTERVAL,".$this->database->carArray['serv_interval']
+					.",SERV_OFFSET,".$this->database->carArray['serv_offset']
+					."\n"
+					);
+				
 				fwrite($temphandle, 'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n");
 				
 				foreach ($this->completeArray as $record)
@@ -881,104 +913,6 @@ class pgmdb {
 	}
 
 
-    /**
-     * Create a 2D array from a CSV string
-     * lewis [ at t] hcoms [d dot t] co [d dot t] uk
-     *
-     * @param mixed $data 2D array
-     * @param string $delimiter Field delimiter
-     * @param string $enclosure Field enclosure
-     * @param string $newline Line seperator
-     * @return
-     */
-    function parse_csv($data, $delimiter = ',', $enclosure = '"', $newline = "\n"){
-        $pos = $last_pos = -1;
-        $end = strlen($data);
-        $row = 0;
-        $quote_open = false;
-        $trim_quote = false;
-
-        $return = array();
-
-        // Create a continuous loop
-        for ($i = -1;; ++$i){
-            ++$pos;
-            // Get the positions
-            $comma_pos = strpos($data, $delimiter, $pos);
-            $quote_pos = strpos($data, $enclosure, $pos);
-            $newline_pos = strpos($data, $newline, $pos);
-
-            // Which one comes first?
-            $pos = min(($comma_pos === false) ? $end : $comma_pos, ($quote_pos === false) ? $end : $quote_pos, ($newline_pos === false) ? $end : $newline_pos);
-
-            // Cache it
-            $char = (isset($data[$pos])) ? $data[$pos] : null;
-            $done = ($pos == $end);
-
-            // It it a special character?
-            if ($done || $char == $delimiter || $char == $newline){
-
-                // Ignore it as we're still in a quote
-                if ($quote_open && !$done){
-                    continue;
-                }
-
-                $length = $pos - ++$last_pos;
-
-                // Is the last thing a quote?
-                if ($trim_quote){
-                    // Well then get rid of it
-                    --$length;
-                }
-
-                // Get all the contents of this column
-                $return[$row][] = ($length > 0) ? str_replace($enclosure . $enclosure, $enclosure, substr($data, $last_pos, $length)) : '';
-
-                // And we're done
-                if ($done){
-                    break;
-                }
-
-                // Save the last position
-                $last_pos = $pos;
-
-                // Next row?
-                if ($char == $newline){
-                    ++$row;
-                }
-
-                $trim_quote = false;
-            }
-            // Our quote?
-            else if ($char == $enclosure){
-
-                // Toggle it
-                if ($quote_open == false){
-                    // It's an opening quote
-                    $quote_open = true;
-                    $trim_quote = false;
-
-                    // Trim this opening quote?
-                    if ($last_pos + 1 == $pos){
-                        ++$last_pos;
-                    }
-
-                }
-                else {
-                    // It's a closing quote
-                    $quote_open = false;
-
-                    // Trim the last quote?
-                    $trim_quote = true;
-                }
-
-            }
-
-        }
-
-        return $return;
-    }
-
 	// Write export files
 	function import ($type) {
 		global $var_root;
@@ -986,10 +920,8 @@ class pgmdb {
 		$this->export_cleanup();
 		
 		// load data ...
-		$this->process_records();
+//		$this->process_records();
 		
-		
-		//echo "<p>Writing " . count($this->completeArray) . " records to " . $tempfile . "</p>\n";
 		//var_dump($_FILES); 
 		//echo "<br>";
 		//var_dump($_POST);
@@ -997,57 +929,21 @@ class pgmdb {
 	   $filename = basename($_FILES['import_file']['name'], '.csv') . '.dat';
 	   $filename = str_replace("export","import", $filename);
 	   $uploadFile = $var_root. '/' . $filename;
-		echo "Trying name $filename<br>\n";
+		print_debug("Trying name $filename");
 	   
+	   // this check needs to be carried out by the database object, not like this
 		if (is_file($uploadFile)) {
-			echo "File exists, choosing new name";
-			$filename = tempnam($var_root,"import").'.dat';
+			print_debug("File exists, choosing new name");
+			$filename = basename(tempnam($var_root,"import")).'.dat';
 			
 		} else {
-			echo "Doesn't already exist.";
+			print_debug("Doesn't already exist.");
 		}
 		
-		
-		/*
-	
-	   if (!is_dir($FileRoot. '/' . $pagename)) 
-	      mkdir ($FileRoot . '/' . $pagename, $DirMode, true);
-	
-	   if (isset($_FILES) && count($_FILES) > 0) {
-	
-	      if (move_uploaded_file($_FILES['userfile']['tmp_name'], $uploadfile)) {
-	         chmod($uploadfile, $FileMode);
-	         $html .= "<div class='notice'>" .
-	            "File was received and written to: ".$uploadfile."</div>\n";
-	
-	      } else {
-	         $html .= "<div class='alert'>File upload failed.\n";
-	         switch ($_FILES['userfile']['error']) {
-	            case 1:
-	               $html .= '<p> The file is bigger than this PHP installation allows</p>';
-	               break;
-	            case 2:
-	               $html .= '<p> The file is bigger than this form allows</p>';
-	               break;
-	            case 3:
-	               $html .= '<p> Only part of the file was uploaded</p>';
-	               break;
-	            case 4:
-	               $html .= '<p> No file was uploaded</p>';
-	               break;
-	         }
-	         $html .= "</div>\n";
-	       echo "<!-- Here is some more debugging info:\n";
-	       print_r($_FILES);
-	       echo "-->\n";
-	      }
-	
-	   }
-*/
 		//if (($inputHandle = fopen($_FILES['import_file']['tmp_name'],'r'))===false) {
 		$inputName = $_FILES['import_file']['tmp_name'];
 		if (is_readable($inputName)) {
-			echo "File ".$inputName." opened for reading.";
+			print_debug("File ".$inputName." opened for reading.");
 		} else {
 			die ("Couldn't open temp file.");
 		}
@@ -1056,7 +952,7 @@ class pgmdb {
 		//if (($outputHandle = fopen($filename,'w'))===false)
 		$outputName = $var_root . '/' . $filename;
 		if (!file_exists($outputName) || is_writable($outputName))
-			echo "File $outputName opened for writing.";
+			print_debug("File $outputName opened for writing.");
 		else
 			die ("Couldn't open $outputName for writing.");
 		
@@ -1066,60 +962,33 @@ class pgmdb {
 				// Print Heading Row
 				$tmpline = file_get_contents($inputName /*, FILE_TEXT */); //fread($inputHandle, 1024);
 				//echo $tmpline;
-				/*$fileLines = explode("\n",$tmpline);
 				
-				
-				foreach ($fileLines as $tmpline) {
-					$tmpline = preg_split("[,]")
-				}
-				*/
-				
-				$inputArray = $this->parse_csv($tmpline);
-				//echo "<BR>INput: <pre>";
-				//var_dump($inputArray);
-				
-				/*//'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n"
-				foreach ($this->completeArray as $record)
-				{
-					// Print File Row
-					fwrite( $temphandle, 
-						$record['date'].","
-						.$record['odo'].","
-						.round($record['gals'],3).","
-						.round($record['price'],3).","
-						.round($record['tank_cost'],2).","
-						.'"'.$record['loc']."\","
-						.'"'.$record['name']."\","
-						.'"'.$record['topd']."\","
-						.round($record['mpg'],1).","
-						);
-				
-					// In the printer-friendly case, print a row with the note on file
-					if (isset($record['note']) && chop($record['note']) != "")
-						fwrite ($temphandle, "\"".chop($record['note'])."\"");
-
-					fwrite ($temphandle, "\n");
-				
-				}
-			
-				// Print units row / table footer
-				fwrite ($temphandle, "mm/dd/yyyy,,miles,gallons,USD,USD,,yes/no,MPG\n");
-			
-				fclose ($temphandle);
-				
-				echo "<p><a href=\"".$var_root.'/'.basename($tempfile)."\">Click here to download...</a></p>\n";
-				
-				//unlink($tempfile);
-				 *
-*/				
+				$inputArray = parse_csv($tmpline);
 				
 				$importArray = array();
 				
 				foreach ($inputArray as $row) {
 					// if the first column is not a date
-					 if (strtotime($row[0]) === false) {
-					 	echo "skipping row beginning with ".$row[0]."<br>\n"; 
+					 if ($row[0] == "YEAR") {
+					 	print_debug("this is the vehicle information row");
+					 	
+					 	$carArray = array(
+					 		//'filename' => $_FILES['import_file']['name'],
+					 		'filename' => $filename,
+					 		'password1' => $_POST['password1'],
+					 		'year' => $row[1],
+					 		'make' => $row[3],
+					 		'model' => $row[5],
+					 		'owner' => $row[7],
+					 		'tanksize' => $row[9],
+					 		'serv_interval' => $row[11],
+					 		'serv_offset' => $row[13]
+					 	);
+					 } elseif (strtotime($row[0]) === false) {
+					 	print_debug("skipping row beginning with ".$row[0]);
+					 
 					 } else {
+						// this order MUST match the export order since we are ignoring the column headings
 					 	$importArray[] = array (
 					 		'date' => $row[0],
 					 		'odo' => $row[1],
@@ -1135,19 +1004,28 @@ class pgmdb {
 					 }
 				}
 				
-				//var_dump($importArray);
-				//echo "</pre>\n";
-				
 				// get a new database object
 				$importObject = new filedb();
+				
+				//var_dump($filename);
+				
+				// create a new vehicle and stuff it with the vehicle information
+				$importObject->newVehicle($filename, $carArray);
+				
 				// stuff it with the table we have put together
 				$importObject->recordArray = $importArray;
 				
-				// write it to the file we have reserverd
+				//var_dump($importObject);
+				
+				// write it to the file we have reserved
+				$importObject->saveVehicle($filename);
+				
+				print_alert("New vehicle $filename created.");
+				
 				
 				break;
 			default:
-				echo "Export type not yet implemented.";
+				print_alert("Export type not yet implemented.", ERROR);
 		}
 	}
 	
