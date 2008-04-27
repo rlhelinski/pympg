@@ -4,6 +4,8 @@
  * Created on Dec 28, 2007 by Ryan Helinski
  *
  */
+$RelVersion = "2.0b";
+$SiteName = "PHP Gas Mileage Database (Version $RelVersion)";
 $var_root = "var";
 
 # Change this to something specific if the address is static

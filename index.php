@@ -20,16 +20,17 @@ if (isset($_GET['debug']))
 ?>
 <html>
 <head>
-<title>PHP Gas Mileage Database</title>
+<title><?php echo $SiteName; ?></title>
 <link rel="stylesheet" type="text/css" href="spreadsheet.css">
 </head>
 <body>
 
 <div id="frame">
+<!--
 <div id="header">
 <h1>PHP Gas Mileage Database</h1>
 </div>
-
+-->
 <div id="toolbar">
 <?php $gasMileage->print_function_chooser(); ?>
 </div>
@@ -72,6 +73,9 @@ if (isset($_POST['function'])) {
 		case "create":
 			$gasMileage->print_new_file_form();
 			break;
+		case "edit":
+			$gasMileage->print_edit_form();
+			break;
 		case "test":
 			$gasMileage->process_records();
 			break;
@@ -80,6 +84,7 @@ if (isset($_POST['function'])) {
 	}
 	
 } else {
+	echo "<h1>$SiteName</h1>\n";
 	echo "<p>Please use the toolbar above to get started.</p>\n";	
 }
 

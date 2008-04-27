@@ -13,7 +13,7 @@ include_once('filedb.php');
  
 class pgmdb {
 	
-	var $function_list = array('summary','print','import','export','record','plot','create');
+	var $function_list = array('summary','record','plot','print','edit','create','import','export');
 	var $export_types = array('csv');
 	var $import_types = array('csv');
 	
@@ -247,7 +247,8 @@ class pgmdb {
 		$recordArray = &$this->database->recordArray;
 		
 //var_dump($this->database->vehicleArray);
-		echo "<h2>".$carArray['make']." ".$carArray['model']." Gas Mileage Summary</h2>\n";
+		echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Summary</h1>\n";
+
 		
 		$this->print_vehicle_info();
 
@@ -489,6 +490,83 @@ class pgmdb {
 			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($this->globalStats['last_date']))."</b><br>\n"
 	      	;
 	}
+	
+	// MODIFY VEHICLE CODE
+	function print_edit_form() {
+		global $filedb_config_file;
+		global $var_root;
+		
+		// Stuff we need in both steps
+	    $datafile = $var_root.'/'.$_POST['datafile'];
+		$this->database->getConfig();
+	    $index = array_search($_POST['datafile'],$this->database->configArray['file']);
+	    $password_hash = $this->database->configArray['password'][$index];
+	    
+	    $this->database->getVehicle($_POST['datafile']);
+	    
+	    echo "<h2>Modify Vehicle</h2>\n";
+	    echo "<p>Data File Name: <tt><a href=\"".$datafile."\">"
+	      .$_POST['datafile']."</a></tt></p>\n";
+	
+		$record = array();
+	
+	    //I'm assuming if the date is empty, the user hasn't filled out any of the form. 
+	    if ( isset($_POST['date']) && $_POST['date'] != "" )
+		{
+			$record['date'] = date("m/d/Y",strtotime($_POST['date'])); // USA style
+			$record['odo'] = number_format($_POST['odo'], 0, '.', '');
+			$record['gals'] = number_format($_POST['gals'], 3, '.', '');
+			$record['price'] = number_format($_POST['price'], 3, '.', '');
+			$record['loc'] = $_POST['loc'];
+			$record['name'] = $_POST['name'];
+			$record['topd'] = $_POST['topd'];
+			$record['note'] = $_POST['note'];
+		}
+	
+		// Update data if password is valid
+		if ( isset($_POST['subfunction']) && $_POST['subfunction'] == "post" ) {
+		    if ( md5(rtrim($_POST['password'])) == rtrim($password_hash) ) {
+				
+				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
+				
+				
+			} else {
+				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
+				// don't print this unless you need to
+				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+			}
+		}
+		    
+	    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
+	      ."<input type=\"hidden\" name=\"subfunction\" value=\"post\" >\n"
+	      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
+	      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
+	      ."<table>\n";
+	      
+	    foreach ($this->database->carArray as $field => $value) {
+	    	echo "<tr><td>$field</td><td><input type=\"text\" name=\"new_$field\" value=\"$value\"></td></tr>\n";
+	    }
+	    
+	    echo "</table>\n<hr>\n<table>\n";
+	    
+	    foreach ($this->database->recordArray as $index => $record) {
+	    	echo "<tr>\n";
+	    	
+	    	foreach ($record as $field => $value) {
+	    		echo "<td><input type='text' name='record:$index:$field' value='$value'></td>\n";
+	    	}
+	    	
+	    	echo "</tr>\n";
+	    }
+	    
+		echo "</table>\n"
+		  ."<input type=\"submit\">\n"
+	      ."</pre>\n"
+	      ."</form>\n";
+	
+	
+	}
+	
 	
 	// ADD RECORD CODE
 	function print_add_record_form () {
