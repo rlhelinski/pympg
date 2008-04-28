@@ -527,8 +527,18 @@ class pgmdb {
 		if ( isset($_POST['subfunction']) && $_POST['subfunction'] == "post" ) {
 		    if ( md5(rtrim($_POST['password'])) == rtrim($password_hash) ) {
 				
-				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
+				// change array
+				foreach ($_POST as $key => $val) {
+					if (preg_match("/^new_(.+)/",$key,$matches)) {
+						var_dump($matches);
+						$this->database->carArray[$matches[1]] = $val;
+					}
+				}
 				
+				// save array
+				$this->database->saveVehicle($_POST['datafile']);
+				
+				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
 				
 			} else {
 				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
@@ -536,18 +546,23 @@ class pgmdb {
 				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
 			}
 		}
-		    
+		
 	    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
 	      ."<input type=\"hidden\" name=\"subfunction\" value=\"post\" >\n"
 	      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
 	      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
 	      ."<table>\n";
 	      
+	    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
+	      
 	    foreach ($this->database->carArray as $field => $value) {
 	    	echo "<tr><td>$field</td><td><input type=\"text\" name=\"new_$field\" value=\"$value\"></td></tr>\n";
 	    }
 	    
-	    echo "</table>\n<hr>\n<table>\n";
+	    echo "</table>\n<hr>\n";
+
+		// This part should be optional
+/*		echo "<table>\n";
 	    
 	    foreach ($this->database->recordArray as $index => $record) {
 	    	echo "<tr>\n";
@@ -559,8 +574,9 @@ class pgmdb {
 	    	echo "</tr>\n";
 	    }
 	    
-		echo "</table>\n"
-		  ."<input type=\"submit\">\n"
+		echo "</table>\n";*/
+		
+		echo "<input type=\"submit\">\n"
 	      ."</pre>\n"
 	      ."</form>\n";
 	
