@@ -151,6 +151,10 @@ class pgmdb {
 		$this->database->getVehicle($_POST['datafile']);
 		
 		$recordArray = &$this->database->recordArray;
+		
+		if (!isset($recordArray) || count($recordArray) == 0) {
+			return false;
+		}
 
 		# Initialize global stat variables
 		$this->globalStats['gals'] = 0;
