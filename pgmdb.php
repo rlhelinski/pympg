@@ -17,6 +17,12 @@ class pgmdb {
 	var $export_types = array('csv');
 	var $import_types = array('csv');
 	
+	var $editFunctions = array (
+		"edit" => "Edit Info",
+		"rename" => "Rename",
+		"records" => "Edit Records"
+	);
+	
 	var $functionDesc = array (
 		"print" => "Reduced printer-friendly report",
 		"summary" => "Full report with derived statistics"
@@ -510,7 +516,7 @@ class pgmdb {
 	
 		$record = array();
 	
-	    //I'm assuming if the date is empty, the user hasn't filled out any of the form. 
+/*	    //I'm assuming if the date is empty, the user hasn't filled out any of the form. 
 	    if ( isset($_POST['date']) && $_POST['date'] != "" )
 		{
 			$record['date'] = date("m/d/Y",strtotime($_POST['date'])); // USA style
@@ -522,21 +528,28 @@ class pgmdb {
 			$record['topd'] = $_POST['topd'];
 			$record['note'] = $_POST['note'];
 		}
-	
-		// Update data if password is valid
-		if ( isset($_POST['subfunction']) && $_POST['subfunction'] == "post" ) {
+*/	
+
+		if ( isset($_POST['step']) && $_POST['step'] == "save" ) {
+			// Update data if password is valid
 		    if ( md5(rtrim($_POST['password'])) == rtrim($password_hash) ) {
-				
-				// change array
-				foreach ($_POST as $key => $val) {
-					if (preg_match("/^new_(.+)/",$key,$matches)) {
-						var_dump($matches);
-						$this->database->carArray[$matches[1]] = $val;
+				if ( $_POST['subfunction'] == "edit") {
+					// change array
+					foreach ($_POST as $key => $val) {
+						if (preg_match("/^new_(.+)/",$key,$matches)) {
+							var_dump($matches);
+							$this->database->carArray[$matches[1]] = $val;
+						}
 					}
+					// save array
+					$this->database->saveVehicle($_POST['datafile']);
+				} elseif ( $_POST['subfunction'] == "rename") {
+					// rename the file
+					$this->database->renameVehicle($_POST['datafile'], $_POST['newname']);
+											
+				} else {
+					echo "Subfunction not recognized.\n";
 				}
-				
-				// save array
-				$this->database->saveVehicle($_POST['datafile']);
 				
 				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
 				
@@ -546,20 +559,65 @@ class pgmdb {
 				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
 			}
 		}
+
+		// Print the different edit forms
+		elseif ( isset($_POST['subfunction']) ) {
+			if ($_POST['subfunction'] == "edit") {
+			    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
+			      ."<input type=\"hidden\" name=\"step\" value=\"save\" >\n"
+			      ."<input type=\"hidden\" name=\"subfunction\" value=\"edit\" >\n"
+			      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
+			      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
+			      ."<table>\n";
+			      
+			    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
+			      
+			    foreach ($this->database->carArray as $field => $value) {
+			    	echo "<tr><td>$field</td><td><input type=\"text\" name=\"new_$field\" value=\"$value\"></td></tr>\n";
+			    }
+			    
+			    echo "</table>\n<hr>\n";		
+				echo "<input type=\"submit\">\n"
+			      ."</pre>\n"
+			      ."</form>\n";
+				
+			} elseif ($_POST['subfunction'] == "rename") {
+			    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
+			      ."<input type=\"hidden\" name=\"step\" value=\"save\" >\n"
+			      ."<input type=\"hidden\" name=\"subfunction\" value=\"rename\" >\n"
+			      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
+			      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
+			      ."<table>\n";
+			      
+			    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
+			      
+			    echo "<tr><td>New name:</td><td><input type='text' name='newname' value='".$_POST['datafile']."'></td></tr>\n";
+			    
+			    echo "</table>\n<hr>\n";		
+				echo "<input type=\"submit\">\n"
+			      ."</pre>\n"
+			      ."</form>\n";
+			}
+		} else {
+			// Print a form to choose subfunction
+		    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
+		      ."<input type=\"hidden\" name=\"step\" value=\"input\">\n"
+		      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
+		      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
+		      ;
+			
+			echo "<select name=\"subfunction\">\n";
+	
+			foreach ( $this->editFunctions as $func => $text ) {
+				echo "<option value=\"$func\">".$text."</option>\n";
+			}
 		
-	    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
-	      ."<input type=\"hidden\" name=\"subfunction\" value=\"post\" >\n"
-	      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
-	      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
-	      ."<table>\n";
-	      
-	    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
-	      
-	    foreach ($this->database->carArray as $field => $value) {
-	    	echo "<tr><td>$field</td><td><input type=\"text\" name=\"new_$field\" value=\"$value\"></td></tr>\n";
-	    }
-	    
-	    echo "</table>\n<hr>\n";
+			echo "</select>\n";
+		    
+			echo "<input type=\"submit\">\n"
+		      ."</pre>\n"
+		      ."</form>\n";
+		}
 
 		// This part should be optional
 /*		echo "<table>\n";
@@ -575,10 +633,7 @@ class pgmdb {
 	    }
 	    
 		echo "</table>\n";*/
-		
-		echo "<input type=\"submit\">\n"
-	      ."</pre>\n"
-	      ."</form>\n";
+
 	
 	
 	}
@@ -696,13 +751,15 @@ class pgmdb {
 			else 
 			# begin file-oriented stuff
 	       $this->database->newVehicle($_POST['filename'], $_POST);
+	       
+	       print_alert("New file ".$_POST['filename']." created. Use the menu above to continue.");
 	     }   
 	
 	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
 	     ."<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">"
 	     ."<input type=\"hidden\" name=\"function\" value=\"create\" />\n"
 	     ."<pre>"
-	     ."Filename:  <input name=\"filename\" type=\"text\" /> (ex: ryan.txt)\n"
+	     ."Filename:  <input name=\"filename\" type=\"text\" /> (ex: F-J Cruiser)\n"
 	     ."Password:  <input name=\"password1\" type=\"password\" />\n"
 	     ."  repeat:  <input name=\"password2\" type=\"password\" />\n"
 	     ."Year:      <input name=\"year\" type=\"text\" /> (ex: 1984)\n"
@@ -827,15 +884,15 @@ class pgmdb {
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
 	
-		if ( count($this->database->configArray['file']) > 0 )
+		if ( count($this->database->configArray) > 0 )
 		{
 			echo "Data File: ";
 			echo "<select name=\"datafile\">";
-			foreach ( $this->database->configArray['file'] as $dataFile) {
-				echo "<option";
-				if (isset($_POST['datafile']) && $_POST['datafile']==$dataFile)
+			foreach ($this->database->configArray as $car) {
+				echo "<option value='".$car['file']."'";
+				if (isset($_POST['datafile']) && $_POST['datafile']==$car['file'])
 					echo " selected";
-				echo ">".$dataFile."</option>\n";
+				echo ">".$car['name']."</option>\n";
 	      	}
 	      	
 			echo "</select>\n";
@@ -885,7 +942,7 @@ class pgmdb {
 	function print_import_form () {
 		global $var_root;
 		
-		print_alert("EXPERIMENTAL!");
+//		print_alert("EXPERIMENTAL!");
 		
 		echo "<form enctype='multipart/form-data' action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<input type=\"hidden\" name=\"function\" value=\"import\">\n";
@@ -902,9 +959,11 @@ class pgmdb {
 		echo "</select></td></tr>\n";
 		
 		echo "<tr><td>File:</td><td><input type=\"file\" name=\"import_file\"></td></tr>\n";
+
+		echo "<tr><td>Name:</td><td><input type=\"text\" name=\"name\"></td></tr>\n";
 		
-		echo "<tr><td>Password: </td><td><input type='text' name='password1'></td></tr>\n";
-		echo "<tr><td>Repeat: </td><td><input type='text' name='password2'></td></tr>\n";
+		echo "<tr><td>Password: </td><td><input type='password' name='password1'></td></tr>\n";
+		echo "<tr><td>Repeat: </td><td><input type='password' name='password2'></td></tr>\n";
 		
 		echo "<tr><td></td><td><input type=\"submit\" value=\"go\" /></td></tr>\n";
 
@@ -915,7 +974,7 @@ class pgmdb {
 	// Cleanup old export temporary files
 	function export_cleanup() {
 		
-		return; // skip this 
+		return; // skip this for now
 		global $var_root;
 		$files = glob($var_root."/export*");
 		//var_dump($files);
@@ -1013,28 +1072,10 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 		
 		$this->export_cleanup();
 		
-		// load data ...
-//		$this->process_records();
 		
-		//var_dump($_FILES); 
-		//echo "<br>";
-		//var_dump($_POST);
-		
-	   $filename = basename($_FILES['import_file']['name'], '.csv') . '.dat';
-	   $filename = str_replace("export","import", $filename);
-	   $uploadFile = $var_root. '/' . $filename;
-		print_debug("Trying name $filename");
+//		if (array_search($filename,$this->database->configArray)!==false)
+//			die ("Name exists, please choose a different name.");
 	   
-	   // this check needs to be carried out by the database object, not like this
-		if (is_file($uploadFile)) {
-			print_debug("File exists, choosing new name");
-			$filename = basename(tempnam($var_root,"import")).'.dat';
-			
-		} else {
-			print_debug("Doesn't already exist.");
-		}
-		
-		//if (($inputHandle = fopen($_FILES['import_file']['tmp_name'],'r'))===false) {
 		$inputName = $_FILES['import_file']['tmp_name'];
 		if (is_readable($inputName)) {
 			print_debug("File ".$inputName." opened for reading.");
@@ -1042,13 +1083,11 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 			die ("Couldn't open temp file.");
 		}
 		
-		
-		//if (($outputHandle = fopen($filename,'w'))===false)
-		$outputName = $var_root . '/' . $filename;
-		if (!file_exists($outputName) || is_writable($outputName))
-			print_debug("File $outputName opened for writing.");
-		else
-			die ("Couldn't open $outputName for writing.");
+//		$outputName = $var_root . '/' . $filename;
+//		if (!file_exists($outputName) || is_writable($outputName))
+//			print_debug("File $outputName opened for writing.");
+//		else
+//			die ("Couldn't open $outputName for writing.");
 		
 		
 		switch ($type) {
@@ -1068,7 +1107,7 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 					 	
 					 	$carArray = array(
 					 		//'filename' => $_FILES['import_file']['name'],
-					 		'filename' => $filename,
+					 		'name' => $_POST['name'],
 					 		'password1' => $_POST['password1'],
 					 		'year' => $row[1],
 					 		'make' => $row[3],
@@ -1104,7 +1143,7 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 				//var_dump($filename);
 				
 				// create a new vehicle and stuff it with the vehicle information
-				$importObject->newVehicle($filename, $carArray);
+				$fileName = $importObject->newVehicle($_POST['name'], $carArray);
 				
 				// stuff it with the table we have put together
 				$importObject->recordArray = $importArray;
@@ -1112,10 +1151,9 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 				//var_dump($importObject);
 				
 				// write it to the file we have reserved
-				$importObject->saveVehicle($filename);
+				$importObject->saveVehicle($fileName);
 				
-				print_alert("New vehicle $filename created.");
-				
+				print_alert("New vehicle ".$_POST['name']." ($fileName) created.");
 				
 				break;
 			default:

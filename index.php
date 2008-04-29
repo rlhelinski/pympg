@@ -14,30 +14,11 @@ foreach ($_GET as $key => $val) {
 	$_POST[$key] = $val;
 }
 
-if (isset($_GET['debug']))
+//if (isset($_GET['debug']))
 	var_dump($_POST);
 
-?>
-<html>
-<head>
-<title><?php echo $SiteName; ?></title>
-<link rel="stylesheet" type="text/css" href="spreadsheet.css">
-</head>
-<body>
+ob_start(); // start output buffering (so we don't output old menus)
 
-<div id="frame">
-<!--
-<div id="header">
-<h1>PHP Gas Mileage Database</h1>
-</div>
--->
-<div id="toolbar">
-<?php $gasMileage->print_function_chooser(); ?>
-</div>
-
-<div id="content">
-
-<?php
 if (isset($_POST['function'])) {
 
 	switch ($_POST['function']) {
@@ -89,7 +70,35 @@ if (isset($_POST['function'])) {
 }
 
 
+$content = ob_get_contents();
+ob_end_clean();
+
 ?>
+<html>
+<head>
+<title><?php echo $SiteName; ?></title>
+<link rel="stylesheet" type="text/css" href="spreadsheet.css">
+</head>
+<body>
+
+<div id="frame">
+<!--
+<div id="header">
+<h1>PHP Gas Mileage Database</h1>
+</div>
+-->
+<div id="toolbar">
+<?php $gasMileage->print_function_chooser(); ?>
+</div>
+
+<div id="content">
+
+<?php
+
+echo $content;
+
+?>
+
 </div>
 
 <div id="footer">PHP Gas Mileage Database, by Ryan Helinski.

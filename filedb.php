@@ -37,7 +37,7 @@ class filedb {
 			# Load the existing configuration
 			$this->configArray = unserialize(file_get_contents($configFile));
 			
-			var_dump ($this->configArray);
+//			var_dump ($this->configArray);
 		} else {
 			# Write an empty configuration
 			$this->configArray = array();
@@ -52,55 +52,60 @@ class filedb {
 	function newVehicle($name, $table) {
 		global $var_root;
 		
-		$fileName = $var_root.'/'.$name;
+		#$fileName = $var_root.'/'.$name;
+		$filePath = tempnam($var_root,"veh-");
+		$fileName = basename($filePath);
 		
-		if ( ! file_exists($fileName) )
-	 	{
-			$this->getConfig(); // make sure we have read any existing config
-			
-			// add vehicle to config
-			$this->configArray['file'][] = $table['filename'];
-			$this->configArray['password'][] = $table['password1'];
-			$this->saveConfig();
-			
-			// save vehicle info in data file
-			$this->carArray = array();
-			$this->carArray['year'] = $table['year'];
-			$this->carArray['make'] = $table['make'];
-			$this->carArray['model'] = $table['model'];
-			$this->carArray['owner'] = $table['owner'];
-			$this->carArray['tanksize'] = $table['tanksize'];
-			
-/*			$vehicle
-			$this->vehicleArray['records'] = array();
-			
-			$success = file_put_contents($fileName, serialize($this->vehicleArray));
-*/			
-			$this->saveVehicle($name);
-
-			if ($success===false) {
-				die("Failed to write file.");
-			}
-			
-	 	}
+		$this->getConfig(); // make sure we have read any existing config
+		
+		// add vehicle to config
+		$this->configArray[] = array(
+			'file' => $fileName,
+			'name' => $name,
+			'password' => $table['password1']
+		);
+		$this->saveConfig();
+		
+		// save vehicle info in data file
+		$this->carArray = array();
+		$this->carArray['year'] = $table['year'];
+		$this->carArray['make'] = $table['make'];
+		$this->carArray['model'] = $table['model'];
+		$this->carArray['owner'] = $table['owner'];
+		$this->carArray['tanksize'] = $table['tanksize'];
+		
+		if ($this->saveVehicle($fileName)===false) {
+			die("Failed to write file.");
+		}
+		
+		return $fileName;
 	}
 	
 	
-	function getVehicle ($name) {
+	function getVehicle ($fileName) {
 		global $var_root;
-//		$this->name; // shouldn't change within session
-		$fileName = $var_root.'/'.$name;
+		
+		$filePath = $var_root.'/'.$fileName;
+		
+//		foreach ($this->configArray as $tmp) {
+//			if ($tmp['name'] == $name) { 
+//				$car = $tmp;
+//				break;
+//			}
+//		}
+//		
+//		$fileName = $car['file'];
 		
 		if (count($this->carArray)>0)
-		// Doesn't need to be done
+		// Doesn't need to be done ??
 			return;
 	
 		
-		if ( file_exists($fileName) )
+		if ( file_exists($filePath) )
 	 	{
 			$this->getConfig(); // make sure we have read any existing config
 			
-			$success = unserialize(file_get_contents($fileName));
+			$success = unserialize(file_get_contents($filePath));
 			if ($success===false) {
 				die("Failed to read file $fileName.");
 			} else {
@@ -112,14 +117,12 @@ class filedb {
 		//var_dump ($this->vehicleArray);
 	}
 	
-	function saveVehicle($name) {
+	function saveVehicle($fileName) {
+//		var_dump($fileName);
 		global $var_root;
-		$fileName = $var_root.'/'.$name;		
+		$filePath = $var_root.'/'.$fileName;
 		
-		// make sure opened first ( why? )
-		//$this->getVehicle($name);
-		
-		$success = file_put_contents($fileName, 
+		$success = file_put_contents($filePath, 
 			serialize(array(
 				'info' => $this->carArray,
 				'records' => $this->recordArray)
@@ -130,6 +133,34 @@ class filedb {
 			die ("Failed to save vehicle");
 		}
 		
+		return true;
+	}
+	
+	function renameVehicle($oldname, $newname) {
+		global $var_root;
+		
+		$oldFileName = $var_root . '/' . $oldname;
+		$newFileName = $var_root . '/' . $newname;
+
+		if (!file_exists($newFileName)) {
+			rename ($oldFileName, $newFileName) || die("Couldn't rename file");		
+		} else {
+			die ("File already exists at $newname");
+		}
+		
+		// update the config array
+	    $index = array_search($oldname,$this->configArray['file']);
+	    if ($index === false) die ("No existing file found.");
+	    
+	    $this->configArray['file'][$index] = $newname;
+	    
+	    $this->saveConfig();
+	    
+		
+		// save the config array
+		
+		
+					
 		return true;
 	}
 	

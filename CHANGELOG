@@ -1,0 +1,58 @@
+Gas Mileage PHP Database, by Ryan Helinski
+Version:1.0
+
+Legend: (*) denotes not done, (.) denotes done, (x) denotes canceled
+
+changes for 2.0: 
+
+.	REPLACED file storage routines with built-in PHP serialize functions
+.	IMPROVED export to CSV 
+	.	Strings are now in quotes to prevent commas from breaking field
+	.	Vehicle intrinsic info is now stored as the first row
+.	ADDED import from CSV
+	.	Format must match that of export
+.	REMOVED storage-specific code from math engine code--this will make extending the system to use an SQL database much easier.
+
+
+*	Fix problem in print view with slashes not being removed
+*	Improve input sanitization
+*	Remove controls from print view
+.	Export to spreadsheet (CSV) format(s)
+.	Add CSS to Makefile rule
+.	Change mode of datafiles.txt in install rule
+*	Restructure classes to allow flat-file storage code to be easily replaced
+	*	Complete the filedb class
+	*	Complete the gnuplotctl class
+*	Support an option for low-pass filtering the waveform output
+
+goals for 1.0:
+. Object-oriented, modular code with little repetition
+. Cascading style sheet (CSS) integrated into code
+. Better look (by style) of alerts to draw attention
+	. Green notices and red alerts would be great
+. Notes should have a pop-up bubbles
+
+since 0.6:
+. Fixed all the warnings/notices that were being generated but not printed
+  unless enabled by the PHP server. This just makes the code more robust,
+  and may have fixed a few potential bugs.
+
+. This also included adding defaults for the add record form a format
+  which allows the fields to be non-empty in the case there was no 
+  corresponding post data. In other words, the fields could have example
+  values by default and a javascript could clear that value upon a click
+  so the user doesn't have to erase anything. Not interesting to me yet.
+
+since 0.5:
+.   Added a new plot function, which calls a gnuplot script and converts the 
+    eps to png for display. Requires "gnuplot" and libgp.
+
+.   since 0.4: 
+	added data conversion/formatting for form input
+	various bug fixes and added statistics
+
+.   since 0.3: added prediction of next service interval and fixed bugs,
+               added Station field
+.   since 0.2: added date conversion to UTC and math for time
+               validated math with spreadsheet
+.   since 0.1: added password protection for adding records
