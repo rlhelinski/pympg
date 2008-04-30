@@ -150,6 +150,15 @@ function table_find_record($table, $searchField, $fieldValue)
 	
 	return false; // not found
 }
-    
+
+// define the following functions if this is PHP 4
+if (version_compare("5", PHP_VERSION, ">")) 
+{ 
+	function file_put_contents( $filename, $string) {
+		return (($fileHandle = fopen($filename, "w"))
+			|| fwrite($fileHandle,$string)
+			|| fclose($fileHandle));
+	}
+}
 
 ?>
