@@ -687,6 +687,8 @@ class pgmdb {
 				echo "<input type=\"submit\">\n"
 			      ."</pre>\n"
 			      ."</form>\n";
+			} else {
+				echo print_alert("Not yet implemented", NOTICE);
 			}
 		} else {
 			// Print a form to choose subfunction
