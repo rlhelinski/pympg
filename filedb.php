@@ -16,6 +16,8 @@ class filedb {
 	# A list of variables which _must_ be defined before construction
 	var $global_variable_names = array('var_root', 'filedb_config_file');
 	
+	var $defaultFields = array ('password', 'year', 'make', 'model', 'owner', 'tanksize', 'serv_int', 'serv_offset');
+	
 	var $configArray;
 	
 	var $carArray;
@@ -62,7 +64,7 @@ class filedb {
 		$this->configArray[] = array(
 			'file' => $fileName,
 			'name' => $name,
-			'password' => $table['password1']
+			'password' => md5($table['password1'])
 		);
 		$this->saveConfig();
 		
@@ -73,6 +75,11 @@ class filedb {
 		$this->carArray['model'] = $table['model'];
 		$this->carArray['owner'] = $table['owner'];
 		$this->carArray['tanksize'] = $table['tanksize'];
+		
+		foreach ($this->defaultFields as $field) {
+			if (!isset($this->carArray[$field]))
+				$this->carArray[$field] = "";
+		}
 		
 		if ($this->saveVehicle($fileName)===false) {
 			die("Failed to write file.");
@@ -205,6 +212,30 @@ class filedb {
 		
 		return $this->saveVehicle($fileName);
 		
+	}
+	
+	function lookUpByName($fileName) {
+		$index = 0;
+		while ($index < count($this->configArray)) {
+			if ($this->configArray[$index]['file'] == $fileName) {
+				return $index;
+			}
+			
+			$index++;
+		}
+		
+		return false;
+	}
+	
+	function getPassHash ($fileName) {
+		$index = $this->lookUpByName($fileName);
+		if ($index!==false) {
+			return $this->configArray[$index]['password'];
+		} else {
+			return false;
+		}
+//		$index = array_search($_POST['datafile'],$this->database->configArray[]['file']);
+//		$password_hash = $this->database->configArray['password'][$index];
 	}
 };
  

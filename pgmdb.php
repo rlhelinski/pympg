@@ -17,6 +17,7 @@ class pgmdb {
 	var $export_types = array('csv');
 	var $import_types = array('csv');
 	
+	
 	var $editFunctions = array (
 		"edit" => "Edit Info",
 		"rename" => "Rename",
@@ -257,7 +258,7 @@ class pgmdb {
 		$recordArray = &$this->database->recordArray;
 		
 //var_dump($this->database->vehicleArray);
-		echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Summary</h1>\n";
+		echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Records</h1>\n";
 
 		
 		$this->print_vehicle_info();
@@ -453,6 +454,19 @@ class pgmdb {
 			."<tr><td>Average Gas Mileage: </td><td><b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)."</b> </td><td>mpg<td></td></tr>\n"
 			."</table>\n"
 			;
+//			$estimated_mileage = $this->globalStats['last_odo']+($this->globalStats['miles']/$this->globalStats['days'])*(time()-strtotime($this->globalStats['last_date']))/86400;
+//			$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($this->globalStats['miles']/$this->globalStats['days']),1)
+//			;
+//
+//		echo "Estimated Current Milage: <b>"
+//			.round($estimated_mileage)
+//	        ."</b> miles<br>\n"
+//			."Days until next 5k-mile service interval: <b>"
+//			//.round(($time_to_service*86400-time()+strtotime($date))/86400,2)
+//			.round($days_to_service)
+//			."</b> days, on or before <b>"
+//			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($this->globalStats['last_date']))."</b><br>\n"
+//	      	;
 		return true;
 	} 
 	
@@ -462,43 +476,99 @@ class pgmdb {
 		$carArray = &$this->database->carArray;
 		$recordArray = &$this->database->recordArray;
 		
-		echo "<h2>Detailed Statistics</h2>\n"
-			."Latest Gas Mileage: <b>".round(($this->globalStats['last_odo']-$this->globalStats['last_last_odo'])/$this->globalStats['last_gals'],2)."</b> mpg<br>\n"
-			."Minimum Gas Mileage: <b>".round($this->globalStats['min_mpg'],1)."</b> miles/gallon<br>\n"
-			."Average Gas Mileage: <b>".round($this->globalStats['miles']/($this->globalStats['gals']),1)
-			."</b> miles/gallon<br>\n"
-			."Maxiumum Gas Mileage: <b>".round($this->globalStats['max_mpg'],1)."</b> miles/gallon<br>\n"
-			."Average Days Between Refeuling: <b>".round($this->globalStats['days']/(count($recordArray)-1))."</b> days<br>\n"
-			."Average Miles per Day: <b>".round($this->globalStats['miles']/$this->globalStats['days'])
-			."</b> miles/day<br>\n"
-			."Estimated Miles per Year: <b>"
-			.number_format(round(365.25*$this->globalStats['miles']/$this->globalStats['days'],-2),0,'.',',')
-			."</b> miles/year<br>\n"
-			."Estimated Gallons per Year: <b>".round(365.25*$this->globalStats['gals']/$this->globalStats['days'])."</b> gallons"
-			." per day <b>".round($this->globalStats['gals']/$this->globalStats['days'],2)."</b> gallons<br>\n"
-			."Estimated Annual Gas Cost: <b>$".round(365.25*$this->globalStats['cost']/$this->globalStats['days'])."</b> US dollars"
-			." per day <b>$".round($this->globalStats['cost']/$this->globalStats['days'],2)."</b> US dollars<br>\n"
-			// The actual maximum range is the maximum distance between fueling
-			// The theoretical maximum range is the range one could drive with 
-			// average or maximum gas mileage with 100% of the tank's fuel.
-			."Average Range: <b>".round($this->globalStats['miles']/(count($recordArray)))
-			."</b> miles<br>\n"
-			."Maximum Range: <b>".$this->globalStats['max_range']."</b> miles<br>\n"
-			."Theoretical Range: <b>".round($carArray['tanksize']*$this->globalStats['miles']/$this->globalStats['gals'])
-			." - ".round($carArray['tanksize']*$this->globalStats['max_mpg'])."</b> miles<br>\n";
-			$estimated_mileage = $this->globalStats['last_odo']+($this->globalStats['miles']/$this->globalStats['days'])*(time()-strtotime($this->globalStats['last_date']))/86400;
-			$days_to_service = round((5000-(fmod($estimated_mileage,5000)))/($this->globalStats['miles']/$this->globalStats['days']),1)
-			;
+		echo "<h2>Detailed Statistics</h2>\n";
+		
+		echo "<table>\n<tr>\n<th></th><th>Minimum</th><th>Average</th><th>Maximum</th><th>Latest</th><th>Units</th></tr>\n";
+		
+		$stats = array(
+			// name, min, avg, max, latest, units
+			array("Gas Mileage", 
+				round($this->globalStats['min_mpg'],1), 
+				round($this->globalStats['miles']/($this->globalStats['gals'])),
+				round($this->globalStats['max_mpg'],1),
+				round(($this->globalStats['last_odo']-$this->globalStats['last_last_odo'])/$this->globalStats['last_gals'],2), 
+				"mi/gal"),
+			array(
+				"Days Between",
+				"",
+				round($this->globalStats['days']/(count($recordArray)-1)),
+				"",
+				"",
+				"days"
+				),
+			array(
+				"Miles/Day",
+				"",
+				round($this->globalStats['miles']/$this->globalStats['days']),
+				"",
+				"",
+				"mi"
+				),
+			array(
+				"Miles/Year",
+				"",
+				number_format(round(365.25*$this->globalStats['miles']/$this->globalStats['days'],-2),0,'.',','),
+				"",
+				"",
+				"mi"
+				),
+			array(
+				"Gallons/Year",
+				"",
+				round(365.25*$this->globalStats['gals']/$this->globalStats['days']),
+				"",
+				"",
+				"gal/year"
+				),
+			array(
+				"Cost/Day",
+				"",
+				round($this->globalStats['cost']/$this->globalStats['days'],2),
+				"",
+				"",
+				"USD/day"
+				),
+			array(
+				"Cost/Year",
+				"",
+				round(365.25*$this->globalStats['cost']/$this->globalStats['days']),
+				"",
+				"",
+				"USD/day"
+				),
+			array(
+				"Tank Range",
+				"",
+				round($this->globalStats['miles']/(count($recordArray))),
+				$this->globalStats['max_range'],
+				"",
+				"mi"
+				)
+		);
+//			."Average Days Between Refeuling: <b>".round($this->globalStats['days']/(count($recordArray)-1))."</b> days<br>\n"
+//			."Average Miles per Day: <b>".round($this->globalStats['miles']/$this->globalStats['days'])
+//			."</b> miles/day<br>\n"
+//			."Estimated Miles per Year: <b>"
+//			.
+//			."</b> miles/year<br>\n"
+//			."Estimated Gallons per Year: <b>".round(365.25*$this->globalStats['gals']/$this->globalStats['days'])."</b> gallons"
+//			." per day <b>".round($this->globalStats['gals']/$this->globalStats['days'],2)."</b> gallons<br>\n"
+//			."Estimated Annual Gas Cost: <b>$".round(365.25*$this->globalStats['cost']/$this->globalStats['days'])."</b> US dollars"
+//			." per day <b>$".round($this->globalStats['cost']/$this->globalStats['days'],2)."</b> US dollars<br>\n"
+//			// The actual maximum range is the maximum distance between fueling
+//			// The theoretical maximum range is the range one could drive with 
+//			// average or maximum gas mileage with 100% of the tank's fuel.
+//			."Average Range: <b>".round($this->globalStats['miles']/(count($recordArray)))
+//			."</b> miles<br>\n"
+//			."Maximum Range: <b>".."</b> miles<br>\n"
+//			."Theoretical Range: <b>".round($carArray['tanksize']*$this->globalStats['miles']/$this->globalStats['gals'])
+//			." - ".round($carArray['tanksize']*$this->globalStats['max_mpg'])."</b> miles<br>\n";
 
-		echo "Estimated Current Milage: <b>"
-			.round($estimated_mileage)
-	        ."</b> miles<br>\n"
-			."Days until next 5k-mile service interval: <b>"
-			//.round(($time_to_service*86400-time()+strtotime($date))/86400,2)
-			.round($days_to_service)
-			."</b> days, on or before <b>"
-			.strftime('%m/%d/%Y',$days_to_service*86400+strtotime($this->globalStats['last_date']))."</b><br>\n"
-	      	;
+		foreach($stats as $stat) {
+			echo "<tr><th>".$stat[0]."</th><td>".$stat[1]."</td><td>".$stat[2]."</td><td>".$stat[3]."</td><td>".$stat[4]."</td><td>".$stat[5]."</td></tr>\n";
+		}
+		
+		echo "</table>\n";
 	}
 	
 	// MODIFY VEHICLE CODE
@@ -509,8 +579,8 @@ class pgmdb {
 		// Stuff we need in both steps
 	    $datafile = $var_root.'/'.$_POST['datafile'];
 		$this->database->getConfig();
-	    $index = array_search($_POST['datafile'],$this->database->configArray['file']);
-	    $password_hash = $this->database->configArray['password'][$index];
+		
+		$password_hash = $this->database->getPassHash($_POST['datafile']);
 	    
 	    $this->database->getVehicle($_POST['datafile']);
 	    
@@ -650,8 +720,8 @@ class pgmdb {
 		
 	    $datafile = $var_root.'/'.$_POST['datafile'];
 		$this->database->getConfig();
-	    $index = array_search($_POST['datafile'],$this->database->configArray['file']);
-	    $password_hash = $this->database->configArray['password'][$index];
+
+		$password_hash = $this->database->getPassHash($_POST['datafile']);
 	    
 	    echo "<h2>Add Refueling Record</h2>\n";
 	    echo "<p>Data File Name: <tt><a href=\"".$datafile."\">"
@@ -679,7 +749,7 @@ class pgmdb {
 			{
 				echo "<div class='alert'>Error: Password does not match that on file.</div>\n";
 				// don't print this unless you need to
-				//echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
+				echo "submitted: ". md5($_POST['password'])." on file: ".$password_hash." ".$index."<br>\n";
 				
 			} else {
 				$this->database->addRecord($_POST['datafile'],$record);
@@ -697,7 +767,7 @@ class pgmdb {
 	
 		} else {
 			if (!isset($_POST['date']) || $_POST['date'] == "") 
-				echo "<div class='alert'>Please fill out the form completely and click submit.</div>\n";
+				echo "<div class='notice'>Please fill out the form completely and click submit.</div>\n";
 			else if (strtotime($_POST['date']) === false) 
 				echo "<div class='alert'>ERROR: Couldn't understand your date entry \"".$_POST['date']."\" \"".$date_UTC."\".</div>\n";
 		}
@@ -1003,33 +1073,31 @@ class pgmdb {
 		// load data ...
 		$this->process_records();
 		
-		$tempfile = tempnam($var_root,"export").'.csv';
+		$tempfile = tempnam($var_root,"export");
 		$temphandle = fopen($tempfile,'w');
+		$exportFile = $tempfile.'.csv';
 		
-		echo "<p>Writing " . count($this->completeArray) . " records to " . $tempfile . "</p>\n";
+		echo "<p>Writing " . count($this->completeArray) . " records to " . $exportFile . "</p>\n";
 		
 		switch ($type) {
 			case "csv":
 				// Print Heading Row
 				//var_dump($this->database->carArray);
-				/*
-array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota" 
-["model"]=>  string(9) "Matrix XR" ["owner"]=>  string(13) "Ryan Helinski" 
-["tanksize"]=>  string(4) "13.2" 
-["serv_interval"]=>  string(4) "5000" 
-["serv_offset"]=>  string(1) "0" }*/
+
+				// This needs to be replaced with iterating over the default field array
+
 				fwrite($temphandle, 
-					"YEAR,".$this->database->carArray['year']
-					.",MAKE,".$this->database->carArray['make']
-					.",MODEL,".$this->database->carArray['model']
-					.",OWNER,".$this->database->carArray['owner']
-					.",TANKSIZE,".$this->database->carArray['tanksize']
-					.",SERV_INTERVAL,".$this->database->carArray['serv_interval']
-					.",SERV_OFFSET,".$this->database->carArray['serv_offset']
-					."\n"
+					"YEAR,\"".$this->database->carArray['year']
+					."\",MAKE,\"".$this->database->carArray['make']
+					."\",MODEL,\"".$this->database->carArray['model']
+					."\",OWNER,\"".$this->database->carArray['owner']
+					."\",TANKSIZE,\"".$this->database->carArray['tanksize']
+					."\",SERV_INTERVAL,\"".$this->database->carArray['serv_int']
+					."\",SERV_OFFSET,\"".$this->database->carArray['serv_offset']
+					."\"\n"
 					);
 				
-				fwrite($temphandle, 'Date,odo.,gal,$/gal,cost,Location,Station,Fill?,MPG,Notes'."\n");
+				fwrite($temphandle, '"Date","odo.","gal","$/gal","cost","Location","Station","Fill?","MPG","Notes"'."\n");
 				
 				foreach ($this->completeArray as $record)
 				{
@@ -1059,7 +1127,7 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 			
 				fclose ($temphandle);
 				
-				echo "<p><a href=\"".$var_root.'/'.basename($tempfile)."\">Click here to download...</a></p>\n";
+				echo "<p><a href=\"".$var_root.'/'.basename($exportFile)."\">Click here to download...</a></p>\n";
 				
 				//unlink($tempfile);
 				
@@ -1067,6 +1135,9 @@ array(7) { ["year"]=>  string(4) "2006" ["make"]=>  string(6) "Toyota"
 			default:
 				echo "Export type not yet implemented.";
 		}
+		
+		if (rename ($tempfile,$exportFile) === false )
+			die ("Failed to rename temp file");
 	}
 
 
