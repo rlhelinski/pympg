@@ -20,7 +20,7 @@ class pgmdb {
 	
 	var $editFunctions = array (
 		"edit" => "Edit Info",
-		"rename" => "Rename",
+		"admin" => "Rename or Change Password",
 		"records" => "Edit Records"
 	);
 	
@@ -259,7 +259,6 @@ class pgmdb {
 		
 //var_dump($this->database->vehicleArray);
 		echo "<h1>".$carArray['make']." ".$carArray['model']." Gas Mileage Records</h1>\n";
-
 		
 		$this->print_vehicle_info();
 
@@ -611,20 +610,34 @@ class pgmdb {
 					// change array
 					foreach ($_POST as $key => $val) {
 						if (preg_match("/^new_(.+)/",$key,$matches)) {
-							var_dump($matches);
+							//var_dump($matches);
 							$this->database->carArray[$matches[1]] = $val;
 						}
 					}
 					// save array
 					$this->database->saveVehicle($_POST['datafile']);
-				} elseif ( $_POST['subfunction'] == "rename") {
-					// rename the file
-					$this->database->renameVehicle($_POST['datafile'], $_POST['newname']);
-											
+				} elseif ( $_POST['subfunction'] == "admin") {
+					// rename the file if filename field was changed
+					if ($_POST['datafile'] != $_POST['newname'])
+						$this->database->renameVehicle($_POST['datafile'], $_POST['newname']);
+					
+					// change password if 'password1' field is not empty AND 
+					// 'password2' field equals 'password1'
+					if (!empty($_POST['password1']))
+					{
+						if ($_POST['password1'] == $_POST['password2']) {
+							$this->database->setPassword($_POST['datafile'],$_POST['password1']);
+						} else {
+							print_alert("Password repetition doesn't match, try again. ",ERROR);
+							$error = true;
+						}
+					}
 				} else {
 					echo "Subfunction not recognized.\n";
+					$error = true;
 				}
 				
+				if (!$error)
 				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
 				
 			} else {
@@ -644,7 +657,7 @@ class pgmdb {
 			      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
 			      ."<table>\n";
 			      
-			    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
+			    echo "<tr><td>Current Password:</td><td><input type='password' name='password'></td></tr>\n";
 			      
 			    foreach ($this->database->carArray as $field => $value) {
 			    	echo "<tr><td>$field</td><td><input type=\"text\" name=\"new_$field\" value=\"$value\"></td></tr>\n";
@@ -655,17 +668,20 @@ class pgmdb {
 			      ."</pre>\n"
 			      ."</form>\n";
 				
-			} elseif ($_POST['subfunction'] == "rename") {
+			} elseif ($_POST['subfunction'] == "admin") {
 			    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
 			      ."<input type=\"hidden\" name=\"step\" value=\"save\" >\n"
-			      ."<input type=\"hidden\" name=\"subfunction\" value=\"rename\" >\n"
+			      ."<input type=\"hidden\" name=\"subfunction\" value=\"admin\" >\n"
 			      ."<input type=\"hidden\" name=\"function\" value=\"edit\">\n"
 			      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" >\n"
 			      ."<table>\n";
 			      
-			    echo "<tr><td>Password:</td><td><input type='password' name='password'></td></tr>\n";
+			    echo "<tr><td>Current Password:</td><td><input type='password' name='password'></td></tr>\n";
 			      
-			    echo "<tr><td>New name:</td><td><input type='text' name='newname' value='".$_POST['datafile']."'></td></tr>\n";
+			    echo "<tr><td>New name:</td><td><input type='text' name='newname' value='".$_POST['datafile']."'> (Leave alone if no change)</td></tr>\n";
+			    
+			    echo "<tr><td>New Password:</td><td><input type='password' name='password1'> (Leave <i>empty</i> if no change)</td></tr>\n";
+			    echo "<tr><td>Repeat Password:</td><td><input type='password' name='password2'> (Leave <i>empty</i> if no change)</td></tr>\n";
 			    
 			    echo "</table>\n<hr>\n";		
 				echo "<input type=\"submit\">\n"
@@ -802,7 +818,11 @@ class pgmdb {
 	      ."</form>";
 	
 	
-	   echo "<p>NOTES: The gas mileage calculation scheme assumes that you top-off each time you fill. If you do not top off, the gas mileage cannot be accurately calculated. Do not use commas in numerical fields. Do not use the ampersand (&) character. The database file (plain text) can be stored for off-line backup or modification purposes via the link above. </p>";
+	   echo "<p>NOTES: The gas mileage calculation scheme assumes that you " .
+	   		"top-off each time you fill. If you do not top off, the gas " .
+	   		"mileage since the last refuel cannot be accurately " .
+	   		"calculated&mdash;only the average will be correct. " .
+	   		"You don't have to enter commas in numerical fields. </p>";
 	
 	}
 	
@@ -829,18 +849,18 @@ class pgmdb {
 	       print_alert("New file ".$_POST['filename']." created. Use the menu above to continue.");
 	     }   
 	
-	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. </p>\n"
+	   echo "<p>Create a new (empty) file for storing vehicle gas mileage data. You can change any of these entries later with the 'edit' function. </p>\n"
 	     ."<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">"
 	     ."<input type=\"hidden\" name=\"function\" value=\"create\" />\n"
 	     ."<pre>"
-	     ."Filename:  <input name=\"filename\" type=\"text\" /> (ex: F-J Cruiser)\n"
+	     ."Filename:  <input name=\"filename\" type=\"text\" /> (ex: Humvee)\n"
 	     ."Password:  <input name=\"password1\" type=\"password\" />\n"
 	     ."  repeat:  <input name=\"password2\" type=\"password\" />\n"
-	     ."Year:      <input name=\"year\" type=\"text\" /> (ex: 1984)\n"
-	     ."Make:      <input name=\"make\" type=\"text\" /> (ex: Honda)\n"
-	     ."Model:     <input name=\"model\" type=\"text\" /> (ex: Accord)\n"
-	     ."Owner:     <input name=\"owner\" type=\"text\" /> (ex: Ryan Helinski)\n"
-	     ."Tank Size: <input name=\"tanksize\" type=\"text\" /> (ex: 12.1)\n"
+	     ."Year:      <input name=\"year\" type=\"text\" /> (ex: 2008)\n"
+	     ."Make:      <input name=\"make\" type=\"text\" /> (ex: Hummer)\n"
+	     ."Model:     <input name=\"model\" type=\"text\" /> (ex: H-2)\n"
+	     ."Owner:     <input name=\"owner\" type=\"text\" /> (ex: Bob Roberts)\n"
+	     ."Tank Size: <input name=\"tanksize\" type=\"text\" /> (ex: 38.8)\n"
 	     ."<input type=\"submit\" /></pre></form>";
 		
 	}
@@ -852,11 +872,9 @@ class pgmdb {
 		$carArray = &$this->database->carArray;
 		
 		echo "<p>Data File Name: <tt>";
-		#if ($_POST['function'] != "print")
-		#	echo "<a href=\"".$var_root.'/'.$_POST['datafile']."\">".$_POST['datafile']."</a>";
-		#else 
-		echo $_POST['datafile'];
-			
+		echo "<a href=\"".$var_root.'/'.$_POST['datafile']."\">".$_POST['datafile']."</a>";
+		//echo $_POST['datafile'];
+		
 		echo "</tt>, Report Format: <b>Data Waveforms</b>"
 			."</p>\n";
 		

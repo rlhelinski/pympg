@@ -137,6 +137,19 @@ function parse_csv($data, $delimiter = ',', $enclosure = '"', $newline = "\n"){
 function array_search_values( $m_needle, $a_haystack, $b_strict = false){
     return array_intersect_key( $a_haystack, array_flip( array_keys( $a_haystack, $m_needle, $b_strict)));
 }
+
+function table_find_record($table, $searchField, $fieldValue) 
+{
+	$i = 0;
+	while ($i < count($table)) {
+		if ($table[$i][$searchField] == $fieldValue) {
+			return $i;
+		}
+		$i++;
+	}
+	
+	return false; // not found
+}
     
 
 ?>

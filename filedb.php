@@ -16,7 +16,7 @@ class filedb {
 	# A list of variables which _must_ be defined before construction
 	var $global_variable_names = array('var_root', 'filedb_config_file');
 	
-	var $defaultFields = array ('password', 'year', 'make', 'model', 'owner', 'tanksize', 'serv_int', 'serv_offset');
+	var $defaultFields = array ('year', 'make', 'model', 'owner', 'tanksize', 'serv_int', 'serv_offset');
 	
 	var $configArray;
 	
@@ -214,21 +214,16 @@ class filedb {
 		
 	}
 	
-	function lookUpByName($fileName) {
-		$index = 0;
-		while ($index < count($this->configArray)) {
-			if ($this->configArray[$index]['file'] == $fileName) {
-				return $index;
-			}
-			
-			$index++;
-		}
+	function setPassword ($fileName, $password) {
+		// get by reference
+		$index = table_find_record($this->configArray, "file", $fileName);
+		$this->configArray[$index]['password'] = md5($password);
 		
-		return false;
+		$this->saveConfig();
 	}
 	
 	function getPassHash ($fileName) {
-		$index = $this->lookUpByName($fileName);
+		$index = table_find_record($this->configArray, "file", $fileName);
 		if ($index!==false) {
 			return $this->configArray[$index]['password'];
 		} else {

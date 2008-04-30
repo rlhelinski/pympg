@@ -5,7 +5,19 @@ Legend: (*) denotes not done, (.) denotes done, (x) denotes canceled
 
 changes for 2.0: 
 
+.	REPLACED user-specified file names with result of tempnam()
+		This should improve collision avoidance (eliminate it) and
+		should make the system less susceptible to hacking
 .	REPLACED file storage routines with built-in PHP serialize functions
+		These files are still human-readable and -editable, but are much 
+		faster to execute and don't require any kind of extension to make 
+		it work with different data structures.
+.	IMPROVED export file storage routine (avoids empty files being left around)
+.	IMPROVED new file routine
+		Now, default fields which are not set are added to the record so 
+		they show up in the edit dialog
+. 	ADDED an edit dialog which allows several functions to be chosen
+ 
 .	IMPROVED export to CSV 
 	.	Strings are now in quotes to prevent commas from breaking field
 	.	Vehicle intrinsic info is now stored as the first row
