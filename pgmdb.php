@@ -15,7 +15,7 @@ class pgmdb {
 	
 	var $function_list = array('summary','record','plot','print','edit','create','import','export');
 	var $export_types = array('csv');
-	var $import_types = array('csv');
+	var $import_types = array('csv','pgmdb-1.0');
 	
 	
 	var $editFunctions = array (
@@ -1165,6 +1165,7 @@ class pgmdb {
 		
 		$this->export_cleanup();
 		
+		$this->database->getConfig();
 		
 //		if (array_search($filename,$this->database->configArray)!==false)
 //			die ("Name exists, please choose a different name.");
@@ -1249,6 +1250,53 @@ class pgmdb {
 				print_alert("New vehicle ".$_POST['name']." ($fileName) created.");
 				
 				break;
+			case "pgmdb-1.0":
+
+				$contents = file_get_contents($inputName /*, FILE_TEXT */);
+				$lines = explode("\n",$contents);
+			
+				$importArray = array();
+				
+			    foreach($lines as $line) {
+		            $newRecord = array();
+
+                    parse_str($line,$newRecord);
+                    if (count($newRecord) > 0) {
+	                    # The first record describes the vehicle
+	                    if (count($carArray)>0)
+	                        $importArray[] = $newRecord;
+	                    else 
+	                        $carArray = $newRecord;
+                    }	                    
+			    }
+
+//				var_dump ($configArray);
+//				$serialData = serialize($configArray);
+//				file_put_contents("../var/ryan-matrix.dat",$serialData);			
+//				$importArray = array();
+//				$this->database->newVehicle($_POST[''])
+				
+				// get a new database object ---- why new one?
+//				$importObject = new filedb();
+				var_dump($importArray);
+				var_dump($lines);
+				//var_dump($filename);
+				
+				// create a new vehicle and stuff it with the vehicle information
+				$fileName = $this->database->newVehicle($_POST['name'], $carArray);
+				
+				// stuff it with the table we have put together
+				$this->database->recordArray = $importArray;
+				
+				//var_dump($importObject);
+				
+				// write it to the file we have reserved
+				$this->database->saveVehicle($fileName);
+				
+				print_alert("New vehicle ".$_POST['name']." ($fileName) created.");
+				
+				break;
+
 			default:
 				print_alert("Export type not yet implemented.", ERROR);
 		}
