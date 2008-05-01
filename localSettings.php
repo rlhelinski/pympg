@@ -24,7 +24,6 @@ $filedb_record_ext = 'dat'; # kind of arbitrary
 $wfm_file = $var_root."/fuelstat.wfm";
 
 # To bring date formatting up to standards
-
 if (version_compare("5", PHP_VERSION, "<")) 
 	date_default_timezone_set('America/New_York');
 ?>

@@ -156,9 +156,17 @@ if (version_compare("5", PHP_VERSION, ">"))
 { 
 	function file_put_contents( $filename, $string) {
 		return (($fileHandle = fopen($filename, "w"))
-			|| fwrite($fileHandle,$string)
+			&& fwrite($fileHandle,$string)
+			&& fclose($fileHandle));
+	}
+/*
+	function file_get_contents($filename) {
+		return (($fileHandle = fopen($filename, "r"))
+			|| fread($fileHandle,$string)
 			|| fclose($fileHandle));
 	}
-}
+*/
+
+} // end compat functions
 
 ?>

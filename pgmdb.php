@@ -180,8 +180,10 @@ class pgmdb {
 			
 				if ($this->globalStats['max_range'] < $travelled) 
 					$this->globalStats['max_range'] = $travelled;
-			
-				$mpg = ($record['odo']-$this->globalStats['last_odo'])/$record['gals'];
+				if ($record['gals'] == 0)
+					$mpg = NAN;
+				else
+					$mpg = ($record['odo']-$this->globalStats['last_odo'])/$record['gals'];
 				if ($record['topd'][0] == "Y")
 				{
 					if ($this->globalStats['max_mpg'] < $mpg) $this->globalStats['max_mpg'] = $mpg;
@@ -533,7 +535,7 @@ class pgmdb {
 				round(365.25*$this->globalStats['cost']/$this->globalStats['days']),
 				"",
 				"",
-				"USD/day"
+				"USD/year"
 				),
 			array(
 				"Tank Range",
@@ -637,7 +639,7 @@ class pgmdb {
 					$error = true;
 				}
 				
-				if (!$error)
+				if (!isset($error) || !$error)
 				echo "<div class='notice'>Successfully updated <tt>".$_POST['datafile']."</tt></div>\n";
 				
 			} else {
@@ -1197,8 +1199,11 @@ class pgmdb {
 				$importArray = array();
 				
 				foreach ($inputArray as $row) {
+					// if there's anything here
+					if(count($row)<2) {
+					
 					// if the first column is not a date
-					 if ($row[0] == "YEAR") {
+					} elseif ($row[0] == "YEAR") {
 					 	print_debug("this is the vehicle information row");
 					 	
 					 	$carArray = array(
@@ -1213,6 +1218,9 @@ class pgmdb {
 					 		'serv_interval' => $row[11],
 					 		'serv_offset' => $row[13]
 					 	);
+					} elseif ($row[0] == "mm/dd/yyyy" || $row[0] == "Date") {
+						// the next case is missed by PHP < 5.0
+						print_debug("Skipping $row");
 					 } elseif (strtotime($row[0]) === false) {
 					 	print_debug("skipping row beginning with ".$row[0]);
 					 
