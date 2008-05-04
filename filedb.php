@@ -3,12 +3,8 @@
 /*
  * Created on Dec 22, 2007 by Ryan Helinski
  *
- * This class will provide a standard interface to some form of database, 
- * depending on the configuration file and those supported in this class. 
+ * This class provides a file-storage implementation of the database. 
  * 
- * Functions will be called to get and add records, and the results will
- * be associative "record" arrays that can be returned. 
- *
  */
  
 class filedb {
