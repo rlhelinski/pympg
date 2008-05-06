@@ -15,7 +15,7 @@ foreach ($_GET as $key => $val) {
 }
 
 //if (isset($_GET['debug']))
-	var_dump($_POST);
+//	var_dump($_POST);
 
 ob_start(); // start output buffering (so we don't output old menus)
 

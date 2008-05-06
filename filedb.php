@@ -55,7 +55,8 @@ class filedb {
 		$fileName = basename($filePath);
 		
 		$this->getConfig(); // make sure we have read any existing config
-		
+//	var_dump($table);	
+//debug_print_backtrace();
 		// add vehicle to config
 		$this->configArray[] = array(
 			'file' => $fileName,
@@ -141,7 +142,9 @@ class filedb {
 	
 	function renameVehicle($oldname, $newname) {
 		global $var_root;
-		
+
+
+	/*	
 		$oldFileName = $var_root . '/' . $oldname;
 		$newFileName = $var_root . '/' . $newname;
 
@@ -150,12 +153,12 @@ class filedb {
 		} else {
 			die ("File already exists at $newname");
 		}
-		
+	*/	
 		// update the config array
-	    $index = array_search($oldname,$this->configArray['file']);
-	    if ($index === false) die ("No existing file found.");
+	    $index = table_find_record($this->configArray, "file", $oldname);
+	    if ($index === false) die ("No existing file found. BUG? ");
 	    
-	    $this->configArray['file'][$index] = $newname;
+	    $this->configArray[$index]['name'] = $newname;
 	    
 	    $this->saveConfig();
 	    
@@ -228,6 +231,18 @@ class filedb {
 //		$index = array_search($_POST['datafile'],$this->database->configArray[]['file']);
 //		$password_hash = $this->database->configArray['password'][$index];
 	}
+
+	function getName($fileName) {
+		$index = table_find_record($this->configArray, "file", $fileName);
+		if ($index!==false) {
+			return $this->configArray[$index]['name'];
+		} else {
+			return false;
+		}
+	}
+
+
+
 };
  
  

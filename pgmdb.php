@@ -679,8 +679,9 @@ class pgmdb {
 			      ."<table>\n";
 			      
 			    echo "<tr><td>Current Password:</td><td><input type='password' name='password'></td></tr>\n";
-			      
-			    echo "<tr><td>New name:</td><td><input type='text' name='newname' value='".$_POST['datafile']."'> (Leave alone if no change)</td></tr>\n";
+//			     var_dump($this->database); 
+
+			    echo "<tr><td>New name:</td><td><input type='text' name='newname' value='".$this->database->getName($_POST['datafile'])."'> (Leave alone if no change)</td></tr>\n";
 			    
 			    echo "<tr><td>New Password:</td><td><input type='password' name='password1'> (Leave <i>empty</i> if no change)</td></tr>\n";
 			    echo "<tr><td>Repeat Password:</td><td><input type='password' name='password2'> (Leave <i>empty</i> if no change)</td></tr>\n";
@@ -1273,7 +1274,7 @@ class pgmdb {
                     parse_str($line,$newRecord);
                     if (count($newRecord) > 0) {
 	                    # The first record describes the vehicle
-	                    if (count($carArray)>0)
+	                    if (isset($carArray) && count($carArray)>0)
 	                        $importArray[] = $newRecord;
 	                    else 
 	                        $carArray = $newRecord;
@@ -1288,9 +1289,10 @@ class pgmdb {
 				
 				// get a new database object ---- why new one?
 //				$importObject = new filedb();
-				var_dump($importArray);
-				var_dump($lines);
+				//var_dump($importArray);
+				//var_dump($lines);
 				//var_dump($filename);
+				$carArray['password1'] = $_POST['password1'];
 				
 				// create a new vehicle and stuff it with the vehicle information
 				$fileName = $this->database->newVehicle($_POST['name'], $carArray);
