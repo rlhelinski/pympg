@@ -8,6 +8,8 @@ $RelVersion = "2.0b";
 $SiteName = "PHP Gas Mileage Database (Version $RelVersion)";
 $var_root = "var";
 
+$DocPath = "docs/pgmdb-user-manual.html";
+
 # Change this to something specific if the address is static
 # $pageAddress = "http://page.to.server/pgmdb/";
 $pageAddress = $_SERVER['PHP_SELF'];
