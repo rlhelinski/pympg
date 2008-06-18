@@ -107,7 +107,7 @@ list($end_usec, $end_sec) = explode(" ", microtime());
 
 echo "Execution time: "
   .number_format($end_usec + $end_sec - $begin_usec - $begin_sec,3)
-  ." s."; ?> <a href="user_manual.html">Read the User's Manual</a>
+  ." s."; ?> <a href="<?php echo $DocPath; ?>">Read the User's Manual</a>
 </div>
 
 </div>
