@@ -1,3 +1,4 @@
+# Makefile for documentation
 
 SOURCENAME = pgmdb-user-manual
 
@@ -14,5 +15,5 @@ $(SOURCENAME).pdf: $(SOURCENAME).lyx
 #	pdfetex $(SOURCENAME).tex 
 
 $(SOURCENAME): $(SOURCENAME).tex
-	latex2html $(SOURCENAME).tex
+	latex2html -split 0 -no_navigation -show_section_numbers -no_subdir $(SOURCENAME).tex
 
