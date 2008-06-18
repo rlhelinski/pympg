@@ -691,7 +691,7 @@ class pgmdb {
 			      ."</pre>\n"
 			      ."</form>\n";
 			} else {
-				echo print_alert("Not yet implemented", NOTICE);
+				echo print_alert("Not yet implemented (edit form). In the mean time, use the export and import functions if you need to modify the data manually. ", NOTICE);
 			}
 		} else {
 			// Print a form to choose subfunction
@@ -981,7 +981,7 @@ class pgmdb {
 		echo "<form action=\"".$GLOBALS['pageAddress']."\" method=\"post\">\n";
 		echo "<strong>Database Query: </strong>\n";
 	
-		if ( count($this->database->configArray) > 0 )
+		if ( count($this->database->configArray) > 0 ) // if there is at least one vehicle
 		{
 			echo "Data File: ";
 			echo "<select name=\"datafile\">";
@@ -999,6 +999,8 @@ class pgmdb {
 			."<select name=\"function\">\n";
 	
 		foreach ( $this->function_list as $func ) {
+			if ( $func == 'create' || $func == 'import' 
+				|| count($this->database->configArray) > 0 )
 			echo "<option";
 			if (isset($_POST['function']) && $_POST['function'] == $func)
 				echo " selected";
