@@ -1,10 +1,11 @@
 # Makefile for PGMDB
 # Ryan Helinski a.k.a. teh h4x0r3r
 #
-# This is usually revised before each major update
+# This should be revised before each major update
 #
 SOURCES := $(shell ls Makefile CHANGELOG LICENSE INSTALL README *.css *.php)
-DIRS = images
+DOCS := $(shell ls docs/*.html docs/*.pdf)
+DIRS = images 
 EXCLUDE = "*/.svn*"
 
 VERSION := $(shell cat VERSION )
@@ -18,10 +19,10 @@ TAROPTS = --create --dereference --verbose --bzip2
 install: $(SOURCES)
 	chmod -R a+r . 
 	mkdir -p var 
-	if [ ! -f "var/datafiles.txt" ] ; then echo "" > var/datafiles.txt ; fi
 	chmod -R a+rwx var
 
 release:
+	make docs
 	make $(TARBALL)
 	make $(CHECKSUM) 
 
@@ -31,6 +32,8 @@ $(CHECKSUM): $(TARBALL)
 # This one makes a tarball for mass distribution
 $(TARBALL): $(SOURCES) $(DIRS)
 	tar $(TAROPTS) --file=$(TARBALL) \
-		--exclude=$(EXCLUDE) $(SOURCES) $(DIRS) ;
+		--exclude=$(EXCLUDE) $(DIRS) $(DOCS) $(SOURCES) ;
 
+docs : 
+	cd docs; make  
 
