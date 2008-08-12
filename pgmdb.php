@@ -196,7 +196,12 @@ class pgmdb {
 				$this->globalStats['miles'] = $this->globalStats['miles'] + $travelled; 
 				$tank_cost = round($record['price']*$record['gals'],2);
 				$this->globalStats['cost'] = $this->globalStats['cost'] + $tank_cost;
-				$miles_per_day = $travelled/$days_elap;
+				if ($days_elap == 0) {
+					$miles_per_day = $travelled;
+				} else {
+					$miles_per_day = $travelled/$days_elap;
+				}
+				
 			
 			}
 			else { 
@@ -792,24 +797,26 @@ class pgmdb {
 			else if (strtotime($_POST['date']) === false) 
 				echo "<div class='alert'>ERROR: Couldn't understand your date entry \"".$_POST['date']."\" \"".$date_UTC."\".</div>\n";
 		}
-	    
+
+		// Changes: Mileage should come first, saves flipping of the receipt
+		// some other rearrangements to match the order of most receipts	    
 	    echo "<form action=\"".$_SERVER['PHP_SELF']."\" method=\"post\">\n"
 	      ."<input type=\"hidden\" name=\"function\" value=\"record\" />\n"
 	      ."<input type=\"hidden\" name=\"datafile\" value=\"".$_POST['datafile']."\" />\n"
 	      ."<pre>\n"
 	      ."Password:         <input name=\"password\" type=\"password\" />\n"
-	      ."Date:             <input name=\"date\" type=\"text\" value=\"".
-	      (isset($record['date'])?$record['date']:"")."\" /> (ex.: 09/07/2006)\n"
 	      ."Odometer Reading: <input name=\"odo\" type=\"text\" value=\"".
 	      (isset($record['odo'])?$record['odo']:"")."\" /> (ex.: 210512)\n"
-	      ."Gallons:          <input name=\"gals\" type=\"text\" value=\"".
-	      (isset($record['gals'])?$record['gals']:"")."\"/> (ex.: 10.596)\n"
+	      ."Date:             <input name=\"date\" type=\"text\" value=\"".
+	      (isset($record['date'])?$record['date']:"")."\" /> (ex.: 09/07/2006)\n"
 	      ."Price per Gallon: <input name=\"price\" type=\"text\" value=\"".
 	      (isset($record['price'])?$record['price']:"")."\" /> (ex.: 2.199)\n"
+	      ."Gallons:          <input name=\"gals\" type=\"text\" value=\"".
+	      (isset($record['gals'])?$record['gals']:"")."\"/> (ex.: 10.596)\n"
 	      ."Station:          <input name=\"name\" type=\"text\" value=\"".
 	      (isset($record['price'])?$record['name']:"")."\" /> (ex.: Enron)\n"
 	      ."Location:         <input name=\"loc\" type=\"text\" value=\"".
-	      (isset($record['loc'])?$record['loc']:"")."\" /> (ex.: Clarksville)\n"
+	      (isset($record['loc'])?$record['loc']:"")."\" /> (ex.: Clarksville, MD)\n"
 	      ."Topped Off:       <select name=\"topd\">\n"
 	      ."<option>Yes</option>"
 	      ."<option>No</option>"
@@ -898,7 +905,7 @@ class pgmdb {
 		$recordArray = &$this->database->recordArray;
 		
 		$records = 0;
-				
+		
 	    if (($wfmHandle = fopen($wfm_file,"w"))!==FALSE)
 	      {
 			if (file_exists($var_root.'/'.$_POST['datafile']))
@@ -932,6 +939,13 @@ class pgmdb {
 		
 			      if ($records > 1)
 					{
+						// Lazy work around for multiple records per day
+						// need time of day to be more accurate?
+						// or, assume previous days_elap, since no days have elapsed
+						if ($record['days_elap'] == 0) {
+							$record['days_elap'] = 1; 
+						}
+						
 					  // Print Waveforms
 					  $fileLine = 
 					    round(strtotime($record['date']))."\t"
