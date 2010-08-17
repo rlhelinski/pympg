@@ -12,6 +12,10 @@
 	than finding the index of a string, which involves n string comparisons, and 
 	then comparing the index to a number. 
 
+    Add cost of gas per day... this would combine miles/day, dollars/gallon and miles/gallon
+    dollars / day = ( dollars / gallon ) * ( miles / gallon ) ^ -1 * ( miles / day ) ^ -1
+     
+
 # Version 0.5:
 # Improved record loading/creating procedure to ensure dates are sorted
 # Improved record edit dialog: 

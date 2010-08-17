@@ -29,14 +29,14 @@ dateFmtStr = "%Y/%m/%d"
 daysPerYear = 365.25
 numSigFigs = 3
 
-pumpxpm = "pump.png"
+pumpxpm = sys.path[0] + "/pump.png"
 pumppb = gtk.gdk.pixbuf_new_from_file(pumpxpm) 
 
-storedFields = ['date', 'odo', 'gals', 'dpg', 'location', 'station', 'fill', 'comment']
-storedFieldLabels = ['Date', 'Odometer', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment']
+storedFields = ['odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment']
+storedFieldLabels = ['Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment']
 
-fullFields = ['date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'station', 'location', 'fill', 'mpg', 'comment']
-columnNames = ['Date', 'Days', 'Odo.', 'Dist.', 'Gals', '$/gal', 'Cost', 'mi/day', 'Station', 'Location', 'Fill?', 'mi/gal', 'Comment']
+fullFields = ['odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'station', 'location', 'fill', 'comment']
+columnNames = ['Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', 'Station', 'Location', 'Fill?', 'Comment']
 
 # columns to put into waveform
 wfmcols = ['date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg']
@@ -69,10 +69,10 @@ class DataBase :
 
         for row in fileReader:
             # check first if this is a preference record
-            if (len(row) == 3 and row[0] == 'pref'):
+            if (row[0] == 'pref'):
                 UserPreferences[row[1]] = row[2]
                 
-            elif (len(row) == 3 and row[0] == 'veh'):
+            elif (row[0] == 'veh'):
                 VehProperties[row[1]] = row[2] 
                 
             else:
@@ -81,9 +81,9 @@ class DataBase :
                     raise NameError('Wrong number of fields in CSV file!')
                 
                 # data pre-processing / input error checking
+                row[0] = int(row[0]) # convert odo to int
                 # convert date string to time struct
-                row[0] = datetime.datetime(*time.strptime(row[0], dateFmtStr)[0:5]) 
-                row[1] = int(row[1]) # convert odo to int
+                row[1] = datetime.datetime(*time.strptime(row[1], dateFmtStr)[0:5]) 
                 row[2] = float(row[2]) # convert gals to float
                 row[3] = float(row[3]) # convert $/gal to float
                 row[6] = (row[6] == "Yes")
@@ -247,6 +247,21 @@ class DataBase :
                 dist = self.recordTable[row][odoi] - self.recordTable[row - 1][odoi]
                 gals = self.recordTable[row][galsi]
                 return "%0.1f" % (dist / gals)
+            
+        elif (field == "dpd"):
+            if (row == 0):
+                return invalidStr
+
+            try:
+                mpd = float( self.getText(row, "mpd") )
+                mpg = float( self.getText(row, "mpg") )
+                dpg = float( self.getText(row-1, "dpg") )
+                
+            except ValueError:
+                return invalidStr
+            
+            # dollars / day = ( dollars / gallon ) * ( miles / gallon ) ^ -1 * ( miles / day ) ^ -1
+            return "%0.2e" % (dpg / mpg / mpd)
             
         elif (field == "fill"):
             return "Yes" if self.recordTable[row][col] else "No"
@@ -530,7 +545,11 @@ class PyMPG:
         self.plotdpgm = gtk.MenuItem("Dollars/Gal")
         self.plotdpgm.connect("activate", self.menuPlot, 'dpg')
         plotmenu.append(self.plotdpgm)
-
+        
+        self.plotdpdm = gtk.MenuItem("Dollars/Day")
+        self.plotdpdm.connect("activate", self.menuPlot, 'dpd')
+        plotmenu.append(self.plotdpdm)
+        
         sep = gtk.SeparatorMenuItem()
         plotmenu.append(sep)
 
@@ -922,11 +941,13 @@ class PyMPG:
 
         titles = {'mpd': 'Mileage',
             'mpg': 'Fuel Economy',
-            'dpg': 'Fuel Price',
+            'dpg': 'Fuel Price per Gallon',
+            'dpd': 'Fuel Cost per Day',
             }
         ylabels = {'mpd': 'Miles per Day [mi/day]',
             'mpg': 'Miles per Gallon [mi/gal]',
             'dpg': 'Dollars per Gallon [$/gal]',
+            'dpd': 'Dollars per Day [$/day]',
             }
 
         commands = [
@@ -1012,7 +1033,7 @@ class PyMPG:
         # Have 'Save' and 'Cancel' buttons at the bottom
         # Don't modify self until 'Save'
 
-        newrow = [datetime.date.today().strftime(dateFmtStr), "", "", "", "", "", True, ""]
+        newrow = ["", datetime.date.today().strftime(dateFmtStr), "", "", "", "", True, ""]
         
         self.editwindow = gtk.Window()
         self.editwindow.set_title("Create New Record")
