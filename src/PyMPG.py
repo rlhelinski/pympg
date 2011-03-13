@@ -238,30 +238,38 @@ class DataBase :
 
         elif (field == "mpg"):
             if (row == 0 or not self.recordTable[row][filli]):
+                # no MPG for this record
                 return invalidStr
-            elif (not self.recordTable[row - 1][filli]):
-                dist = self.recordTable[row][odoi] - self.recordTable[row - 2][odoi]
-                gals = self.recordTable[row][galsi] + self.recordTable[row - 1][galsi]
-                return "%0.1f" % (dist / gals)
             else:
-                dist = self.recordTable[row][odoi] - self.recordTable[row - 1][odoi]
-                gals = self.recordTable[row][galsi]
-                return "%0.1f" % (dist / gals)
+                lastFill = 1 
+                totalFuel = self.recordTable[row][galsi]
+                #print self.recordTable[row - lastFill][filli]
+                while (not self.recordTable[row - lastFill][filli]):
+                    lastFill = lastFill + 1
+                    totalFuel = totalFuel + self.recordTable[row - lastFill][galsi]
+
+                totalMiles = self.recordTable[row][odoi] - self.recordTable[row - lastFill][odoi]
+		#print "%f / %f %d" % (totalMiles, totalFuel, lastFill)
+                return "%0.1f" % (totalMiles / totalFuel)
             
         elif (field == "dpd"):
             if (row == 0):
                 return invalidStr
 
             try:
-                mpd = float( self.getText(row, "mpd") )
-                mpg = float( self.getText(row, "mpg") )
-                dpg = float( self.getText(row-1, "dpg") )
+                tankcost = float( self.getText(row, "tankcost") )
+                days = float( self.getText(row, "days") )
                 
+                # dollars / day = tankcost / days 
+                return "%0.2f" % (tankcost / days) 
+
             except ValueError:
                 return invalidStr
+
+            except ZeroDivisionError:
+                return invalidStr
             
-            # dollars / day = ( dollars / gallon ) * ( miles / gallon ) ^ -1 * ( miles / day ) ^ -1
-            return "%0.2e" % (dpg / mpg / mpd)
+# TODO justify numeric fields to right 
             
         elif (field == "fill"):
             return "Yes" if self.recordTable[row][col] else "No"
@@ -959,7 +967,7 @@ class PyMPG:
             "set grid",
 
             "set title '%s'" % titles[field],
-            "set xlabel 'Date' 0,-1",
+            "set xlabel 'Date'",
             "set ylabel '%s'" % ylabels[field],
             # the %s here allows me to annotate a point with a string
             "plot '-' using 1:2 with lines%s" % self.gnuplot_annot,
@@ -1106,10 +1114,7 @@ class PyMPG:
             # If entries OK
             self.makeDirty()
             self.database.addNewRecord(newrow)
-            # need to use newrownum here instead of this 
-            #self.recordList.append([len(self.database.recordTable) - 1])
-            self.recordList.append([newrownum])
-            self.treeview.set_model(self.recordList)
+            self.updateList()
             self.updatePlot()
             self.newstatus("New record created.")
             self.editwindow.destroy()
@@ -1118,7 +1123,8 @@ class PyMPG:
     
     def updateList(self):
         self.recordList = gtk.ListStore(object)
-        for i in range(0, len(self.database.recordTable)):
+# TODO improve sorting flexibility here 
+        for i in range(len(self.database.recordTable) - 1, -1, -1):
             self.recordList.append([i])
         self.treeview.set_model(self.recordList)
         
