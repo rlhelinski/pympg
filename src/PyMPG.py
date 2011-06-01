@@ -7,20 +7,18 @@
 
 import sys
 import gtk
+import glib
 import csv
 import time
 import datetime
-#from datetime import datetime, date, time
 #import traceback
-#import string
 import subprocess
-
 
 # Global settings 
 progname = "PyMPG"
-progver = "1.0b"
+progver = "1.1b"
 progcopy = "Copyright Ryan Helinski"
-progcomm = "A simple tool for keeping track of gas mileage."
+progcomm = "A simple tool for keeping track of gas mileage implemented in Python using PyGTK."
 progurl = "http://pgmdb.sf.net/"
 
 invalidStr = "--"
@@ -30,337 +28,466 @@ daysPerYear = 365.25
 numSigFigs = 3
 
 pumpxpm = sys.path[0] + "/pump.png"
-pumppb = gtk.gdk.pixbuf_new_from_file(pumpxpm) 
+try: 
+    pumppb = gtk.gdk.pixbuf_new_from_file(pumpxpm) 
+except glib.GError as error:
+	print error
 
-storedFields = ['odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment']
-storedFieldLabels = ['Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment']
+# http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python/1695250#1695250
+class Enum():
+    def __init__(self, *sequential, **named):
+        self.enumd = dict(zip(sequential, range(len(sequential))), **named)
+    def __len__(self):
+        return len(self.enumd)
+    def __getitem__(self, index):
+        try:
+            return self.enumd.keys()[self.enumd.values().index(index)]
+        except ValueError:
+            raise IndexError
+    def __getattr__(self, name):
+        if name in self.enumd:
+            return self.enumd[name]
+        raise AttributeError
+    def value(self, name):
+        return self.enumd[name]
+    def pairs(self):
+	return self.enumd.items()
 
-fullFields = ['odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'station', 'location', 'fill', 'comment']
-columnNames = ['Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', 'Station', 'Location', 'Fill?', 'Comment']
+# http://stackoverflow.com/questions/749796/pretty-printing-xml-in-python/4590052#4590052
+def xml_indent(elem, level=0):
+    """Add white space to XML DOM so that when it is converted to a string, it is pretty."""
+
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            xml_indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
+def mktimestamp(timeobj):
+	return int(time.mktime(timeobj.timetuple()))
+
+# TODO most of these should move to the record class
+storedFields = Enum('odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment')
+storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment')
+
+fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'station', 'location', 'fill', 'comment')
+columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', 'Station', 'Location', 'Fill?', 'Comment')
+
+numFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd')
 
 # columns to put into waveform
-wfmcols = ['date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg']
+wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg')
 
-sortField = "odo"
-sortFieldI = storedFields.index('odo')
+sortField = storedFields.odo
 
-UserPreferences = dict({'GnuPlotPath' : 'gnuplot'}) 
+
+# defaults
+# TODO these should be part of the database, but they are not
+UserPreferences = dict({'GnuPlotPath' : 'gnuplot', 'GnuPlotTerm' : 'x11'}) 
 VehProperties = dict()
-vehPrefFields = ["Year","Make","Model","TankSize","ServiceOffset","ServiceInterval","Owner"]
+vehPrefFields = Enum("Year","Make","Model","TankSize","ServiceOffset","ServiceInterval","Owner")
 
+
+
+class FuelRecord():
+
+	def __init__(self, source=None):
+		self.fields = dict()
+
+		if (type(source) == None):
+			None
+		elif (type(source) == list):
+			self.fromlist(source)
+		elif (type(source) == dict):
+			self.fromdict(source)
+
+	def __getattr__(self, name): # object.name, return raw data
+		return self.fields[name]
+
+	def __repr__(self): # string representation
+		return str(self.fields)
+
+	def __getitem__(self, key): # object[name], format a string 
+		return self.getText(key)
+
+	def fromlist(self, row):
+		if (len(row) != len(storedFields)):
+			raise NameError('Wrong number of fields in CSV file!')
+					
+		for field, index in storedFields.pairs():
+			self.fields[field] = self.formatText(field, row[index])
+
+	def fromdict(self, mydict):
+		for field in storedFields:
+			self.fields[field] = self.formatText(field, mydict[field])
+
+	def tolist(self):
+                j = 0
+		textrow = []
+		for j in range(0, len(storedFields)):
+			textrow.append(self.getText(storedFields[j]))
+		return textrow
+
+	def todict(self):
+                j = 0
+                attribs = dict()
+                for j in range(0, len(storedFields)):
+                    attribs[storedFields[j]] = self.getText(storedFields[j])
+		return attribs
+
+	def getText(self, field):
+		if (field == "date"):
+			return self.fields[field].date().strftime(dateFmtStr)
+
+		elif (field == "tankcost"):
+			cost = self.fields['gals'] * self.fields['dpg']
+			return "%.2f" % cost
+
+# TODO justify numeric fields to right 
+			
+		elif (field == "fill"):
+			return "Yes" if self.fields[field] else "No"
+
+		# no special treatment necessary, return as-is
+		else:
+			return "%s" % self.fields[field]
+
+	def setText(self, field, text):
+		self.fields[field] = self.formatText(field, text)
+
+	@staticmethod
+	def formatText(field, text):
+		if (field == "odo"):
+			retval = int(text)
+		elif (field == "date"):
+			retval = datetime.datetime.strptime(text, dateFmtStr)
+		elif (field == "gals" or field == "dpg"):
+			retval = round(float(text), numSigFigs)
+		elif (field == "fill"):
+			retval = (text.lower() == "yes")
+		else:	# return value as-is
+			retval = text
+
+		return retval
 
 # This class opens/saves files, and manages the data in memory
 class DataBase :
-    dirty_bit = False        # true if the data from the file has been modified
-    filename = ""         # name of the file that's open
-    recordTable = []        # the actual records
-    
-    def newfile(self):
-        self.recordTable = []
-        self.filename = ""
+	dirty_bit = False		# true if the data from the file has been modified
+	filename = ""		 # name of the file that's open
+	recordTable = []		# the actual records
+	
+	def __getitem__(self, index):
+		return self.recordTable[index]
 
-        return
-        
-    def loadfile(self, filename):
-        # Load records from CSV file
-        self.newfile()
-        
-        fileReader = csv.reader(open(filename), delimiter=',', quotechar='"')
+	def newfile(self):
+		self.recordTable = []
+		self.filename = ""
 
-        for row in fileReader:
-            # check first if this is a preference record
-            if (row[0] == 'pref'):
-                UserPreferences[row[1]] = row[2]
-                
-            elif (row[0] == 'veh'):
-                VehProperties[row[1]] = row[2] 
-                
-            else:
-                
-                if (len(row) != len(storedFields)):
-                    raise NameError('Wrong number of fields in CSV file!')
-                
-                # data pre-processing / input error checking
-                row[0] = int(row[0]) # convert odo to int
-                # convert date string to time struct
-                row[1] = datetime.datetime(*time.strptime(row[1], dateFmtStr)[0:5]) 
-                row[2] = float(row[2]) # convert gals to float
-                row[3] = float(row[3]) # convert $/gal to float
-                row[6] = (row[6] == "Yes")
-                # row[7] is the comment
-                row.append(len(self.recordTable))
-                
-                #self.addNewRecord(row) # this would be slower
-                self.recordTable.append(row)
-                
+		return
+		
+	def loadFile(self, filename):
+		# Load records from CSV file
+		self.newfile()
+		
+		if (filename.lower().endswith('csv')):
+			fileReader = csv.reader(open(filename), delimiter=',', quotechar='"')
 
-        self.filename = filename # Save file name for later
+			for row in fileReader:
+				# check first if this is a preference record
+				if (row[0] == 'pref'):
+					UserPreferences[row[1]] = row[2]
+					
+				elif (row[0] == 'veh'):
+					VehProperties[row[1]] = row[2] 
+					
+				else:
+					self.recordTable.append(FuelRecord(row))
+					
+		elif (filename.lower().endswith('xml')):
+			import xml.etree.ElementTree as etree
+			mytree = etree.parse(filename)
+			myroot = mytree.getroot()
+			
+			for child in myroot[0]:
+				if (child.tag == 'user'):
+					for pref in child:
+						UserPreferences[pref.attrib['name']] = pref.attrib['value']
+				if (child.tag == 'vehicle'):
+					for pref in child:
+						VehProperties[pref.attrib['name']] = pref.attrib['value']
+				if (child.tag == 'fuel'):
+					for record in child:
+						 self.recordTable.append(FuelRecord(record.attrib))
 
-        self.sortRecords()
-        
+		else: 
+			raise NameError("Unknown file type")
 
-        return
 
-    def getRowOf(self, key):
-        for x in range(0, len(self.recordTable)):
-            if (key == self.recordTable[x][8]): # TODO replace 7 with key symbol
-                return x
-            
-        return False
-    
-    def getKeyOf(self, row):
-        return self.recordTable[row][8] # TODO replace 7 with key symbol
+		self.filename = filename # Save file name for later
 
-    def saveFile(self):
-        # Save records back to a CSV file
-        fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+		self.sortRecords()
+		
 
-        for pref in UserPreferences.keys():
-            fileWriter.writerow(['pref', pref, UserPreferences[pref]])
-            
-        for prop in VehProperties.keys():
-            fileWriter.writerow(['veh', prop, VehProperties[prop]])
+		return
 
-        i = 0
-        for i in range(0, len(self.recordTable)):
-            j = 0
-            textrow = []
-            for j in range(0, len(storedFields)):
-                textrow.append(self.getText(i, storedFields[j]))
-            fileWriter.writerow(textrow)
+	def getText(self, row, field):
+		# hooks for certain derived fields
+		if (field == "days"):
+			if (row == 0):
+				return invalidStr
 
-        return
+			timedelta = self.recordTable[row].date - self.recordTable[row - 1].date
 
-    def addNewRecord(self, record=[]):
+			return "%d" % timedelta.days
 
-        record.append(len(self.recordTable))
-        self.recordTable.append(record) 
-        self.sortRecords()
-        
-        return
+		elif (field == "dist"):
+			if (row == 0):
+				return invalidStr
 
-    def sortRecords(self):
-        self.recordTable.sort(recordCompare)
-        return
+			return "%d" % (self.recordTable[row].odo - self.recordTable[row - 1].odo)
 
-    def deleteRecord(self, row):
-        del(self.recordTable[row])
-        return
-       
-    def exportWaveform(self, filename):
-        waveform = self.createWaveform()
-        wfmfile = open(filename, 'w')
-        wfmfile.write(waveform)
-        wfmfile.close()
+		elif (field == "mpd"):
+			if (row == 0):
+				return invalidStr
 
-        return
+			dist = self.recordTable[row].odo - self.recordTable[row - 1].odo
+			timedelta = self.recordTable[row].date - self.recordTable[row - 1].date
+			days = timedelta.days
 
-    def createWaveform(self):
-        # Need a function here for later piping with GNUPLOT
-        # Write a header comment to label the columns
-        wfm = "# "
-        for x in range(0, len(self.fullFields)):
-            if (not self.fullFields[x] in wfmcols):
-                pass
-            elif (self.fullFields[x] == 'date'):
-                # Because the date field is particularly wide
-                wfm += self.columnNames[x] + "\t\t"
-            else:
-                wfm += self.columnNames[x] + "\t"
-        wfm += "\n"
+			# This saturates to "miles per fill-up" in the case of more than one 
+			# fill-up per day. 
+			if (days == 0):
+				# I'll use the following assumption: No more than two fill-ups per day. 
+				# Then, in the case of the second, a half-day has passed. 
+				mpd = 2 * dist 
+			else:
+				mpd = dist / days
 
-        # Write data 
-        for x in range(0, len(self.recordTable)):
-            line = ''
-            # TODO could leave these points in the waveform for mi/day and $/gal
-            #if (self.recordTable[x][filli]):
-            for y in range(0, len(self.fullFields)):
-                if (self.fullFields[y] == 'date'):
-                    # Convert the datetime obj to Epoch seconds
-                    line += "%d" % time.mktime(self.recordTable[x][storedFields.index('date')].timetuple())
-                elif (not self.fullFields[y] in wfmcols):
-                    # Skip these, they're not useful for plotting
-                    pass
-                else:
-                    line += "\t" + self.getText(x, self.fullFields[y]) 
+			return "%d" % mpd
 
-            # Make certain sequences GNUPLOT-friendly
-            line = line.replace('*', '')
-            line = line.replace(invalidStr, '0')
-            wfm += line + "\n"
+		elif (field == "mpg"):
+			if (row == 0 or not self.recordTable[row].fill):
+				# no MPG for this record
+				return invalidStr
+			else:
+				lastFill = 1 
+				totalFuel = self.recordTable[row].gals
+				while (not self.recordTable[row - lastFill].fill):
+					lastFill = lastFill + 1
+					totalFuel = totalFuel + self.recordTable[row - lastFill].gals
 
-        return wfm
+				totalMiles = self.recordTable[row].odo - self.recordTable[row - lastFill].odo
+				return "%0.1f" % (totalMiles / totalFuel)
+			
+		elif (field == "dpd"):
+			if (row == 0):
+				return invalidStr
 
-    def getText(self, row, field):
-        if (field in storedFields):
-            col = storedFields.index(field)
+			try:
+				# recursive calls here
+				tankcost = float( self.getText(row, "tankcost") )
+				days = float( self.getText(row, "days") )
+				
+				# dollars / day = tankcost / days 
+				return "%0.2f" % (tankcost / days) 
 
-        odoi = storedFields.index("odo")
-        datei = storedFields.index("date")
-        galsi = storedFields.index("gals")
-        filli = storedFields.index("fill")
-        dpgi = storedFields.index("dpg")
+				# dollars / day = ( dollars / gallon ) * ( miles / gallon ) ^ -1 * ( miles / day )
+				#return "%0.2e" % (dpg / mpg * mpd)
 
-        if (field == "date"):
-            return self.recordTable[row][col].date().strftime(dateFmtStr)
-        elif (field == "days"):
-            if (row == 0):
-                return invalidStr
+			except ValueError:
+				return invalidStr
 
-            timedelta = self.recordTable[row][datei] - self.recordTable[row - 1][datei]
-            return "%d" % timedelta.days
-        elif (field == "dist"):
-            if (row == 0):
-                return invalidStr
+			except ZeroDivisionError:
+				return invalidStr
+			
+		# it's just a stored field 
+		else: 
+			return self.recordTable[row].getText(field)
 
-            return "%d" % (self.recordTable[row][odoi] - self.recordTable[row - 1][odoi])
-        elif (field == "tankcost"):
-            cost = self.recordTable[row][galsi] * self.recordTable[row][dpgi]
-            return "%.2f" % cost
+	def getRowOf(self, key):
+		for x in range(0, len(self.recordTable)):
+			if (key == self.recordTable[x][storedFields[sortField]]): 
+				return x
+			
+		return False
+	
+	def saveFile(self):
+		if (self.filename.lower().endswith('csv')):
+			# Save records back to a CSV file
+			fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
 
-        elif (field == "mpd"):
-            if (row == 0):
-                return invalidStr
+			for pref in UserPreferences.keys():
+				fileWriter.writerow(['pref', pref, UserPreferences[pref]])
+			
+			for prop in VehProperties.keys():
+				fileWriter.writerow(['veh', prop, VehProperties[prop]])
 
-            dist = self.recordTable[row][odoi] - self.recordTable[row - 1][odoi]
-            timedelta = self.recordTable[row][datei] - self.recordTable[row - 1][datei]
-            days = timedelta.days
-            # This saturates to "miles per fill-up" in the case of more than one 
-            # fill-up per day. 
-            if (days == 0):
-                # I'll use the following assumption: No more than two fill-ups per day. 
-                # Then, in the case of the second, a half-day has passed. 
-                mpd = 2 * dist 
-            else:
-                mpd = dist / days
+			i = 0
+			for i in range(0, len(self.recordTable)):
+				fileWriter.writerow(self.recordTable[i].tolist())
 
-            return "%d" % mpd
+		elif (self.filename.lower().endswith('xml')):
+			# Create an XML
+			import xml.etree.ElementTree as etree
 
-        elif (field == "mpg"):
-            if (row == 0 or not self.recordTable[row][filli]):
-                # no MPG for this record
-                return invalidStr
-            else:
-                lastFill = 1 
-                totalFuel = self.recordTable[row][galsi]
-                #print self.recordTable[row - lastFill][filli]
-                while (not self.recordTable[row - lastFill][filli]):
-                    lastFill = lastFill + 1
-                    totalFuel = totalFuel + self.recordTable[row - lastFill][galsi]
+			myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
+			mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': '0.1', 'generator': sys.argv[0]})
 
-                totalMiles = self.recordTable[row][odoi] - self.recordTable[row - lastFill][odoi]
-		#print "%f / %f %d" % (totalMiles, totalFuel, lastFill)
-                return "%0.1f" % (totalMiles / totalFuel)
-            
-        elif (field == "dpd"):
-            if (row == 0):
-                return invalidStr
+			myuser = etree.SubElement(mypmx, 'user')
+			for pref in UserPreferences.keys():
+				etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
 
-            try:
-                tankcost = float( self.getText(row, "tankcost") )
-                days = float( self.getText(row, "days") )
-                
-                # dollars / day = tankcost / days 
-                return "%0.2f" % (tankcost / days) 
+			myveh = etree.SubElement(mypmx, 'vehicle')
+			for prop in VehProperties.keys():
+				etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
 
-            except ValueError:
-                return invalidStr
+			myfuel = etree.SubElement(mypmx, 'fuel')
 
-            except ZeroDivisionError:
-                return invalidStr
-            
-# TODO justify numeric fields to right 
-            
-        elif (field == "fill"):
-            return "Yes" if self.recordTable[row][col] else "No"
-        else:
-            return "%s" % self.recordTable[row][col]
+			i = 0
+			for i in range(0, len(self.recordTable)):
+				etree.SubElement(myfuel, 'record', attrib=self.recordTable[i].todict())
 
-    def setText(self, row, field, text):
-        col = storedFields.index(field)
-        self.recordTable[row][col] = self.checkText(field, text)
+			xmlfile = open(self.filename, 'w')
+			xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
+			xmlfile.write(etree.tostring(myxml))
+			xmlfile.flush()
+			xmlfile.close()
 
-        return
+		else:
+			raise NameError('Unknown file type')
 
-    def checkText(self, field, text):
-        if (field == "date"):
-            retval = datetime.datetime.strptime(text, dateFmtStr)
-        elif (field == "odo"):
-            retval = int(text)
-        elif (field == "gals"):
-            retval = round(float(text), numSigFigs)
-        elif (field == "dpg"):
-            retval = round(float(text), numSigFigs)
-        else:
-            retval = text
+		return
 
-        return retval
-       
-    def getColSum(self, field):
-        col = storedFields.index(field)
-        sum = 0
-        for i in range(0, len(self.recordTable)):
-            sum += float(self.recordTable[i][col])
+	def addNewRecord(self, record=FuelRecord):
 
-        return sum
+		#record.append(len(self.recordTable))
+		self.recordTable.append(record) 
+		self.sortRecords()
+		
+		return
 
-    def getColProdSum(self, field1, field2):
-        col1 = storedFields.index(field1)
-        col2 = storedFields.index(field2)
-        sum = 0
-        for i in range(0, len(self.recordTable)):
-            sum += float(self.recordTable[i][col1]) * float(self.recordTable[i][col2])
+	def sortRecords(self):
+		self.recordTable.sort(recordCompare)
+		return
 
-        return sum
-       
-    def getIndexOfDate(self, date):
-        dateCol = storedFields.index('date')
-        index = len(self.recordTable) - 1
-        while (self.recordTable[index][dateCol] > date):
-            index = index - 1
-        return index
+	def deleteRecord(self, row):
+		del(self.recordTable[row])
+		return
+	   
+	def exportWaveform(self, filename):
+		waveform = self.createWaveform()
+		wfmfile = open(filename, 'w')
+		wfmfile.write(waveform)
+		wfmfile.close()
+
+		return
+
+	def createWaveform(self):
+		# Need a function here for later piping with GNUPLOT
+		# Write a header comment to label the columns
+		wfm = "# "
+		for x in range(0, len(self.fullFields)):
+			if (not self.fullFields[x] in wfmcols):
+				pass
+			elif (self.fullFields[x] == 'date'):
+				# Because the date field is particularly wide
+				wfm += self.columnNames[x] + "\t\t"
+			else:
+				wfm += self.columnNames[x] + "\t"
+		wfm += "\n"
+
+		# Write data 
+		for x in range(0, len(self.recordTable)):
+			line = ''
+			# TODO could leave these points in the waveform for mi/day and $/gal
+			for y in range(0, len(self.fullFields)):
+				if (self.fullFields[y] == 'date'):
+					# Convert the datetime obj to Epoch seconds
+					line += "%d" % time.mktime(self.recordTable[x][storedFields.date].timetuple())
+				elif (not self.fullFields[y] in wfmcols):
+					# Skip these, they're not useful for plotting
+					pass
+				else:
+					line += "\t" + self.recordTable[x].getText(self.fullFields[y]) 
+
+			# Make certain sequences GNUPLOT-friendly
+			line = line.replace('*', '')
+			line = line.replace(invalidStr, '0')
+			wfm += line + "\n"
+
+		return wfm
+
+	   
+	def getColSum(self, field):
+		sum = 0
+		for i in range(0, len(self.recordTable)):
+			sum += float(self.recordTable[i][field])
+
+		return sum
+
+	def getColProdSum(self, field1, field2):
+		sum = 0
+		for i in range(0, len(self.recordTable)):
+			sum += float(self.recordTable[i][field1]) * float(self.recordTable[i][field2])
+
+		return sum
+	   
+	def getIndexOfDate(self, date):
+		index = len(self.recordTable) - 1
+		while (self.recordTable[index].date > date):
+			index = index - 1
+		return index
 
 
 
-    def getSummaryTable(self): 
-        dateCol = storedFields.index('date')
-        odoCol = storedFields.index('odo')
+	def getSummaryTable(self): 
 
-        totalGals = self.getColSum('gals')
-        totalMiles = self.recordTable[-1][odoCol] - self.recordTable[0][odoCol]
-        totalDays = (self.recordTable[-1][dateCol] - self.recordTable[0][dateCol]).days
-        totalCost = self.getColProdSum('gals', 'dpg')
-        averageMPG = totalMiles / totalGals
-        averageMPY = daysPerYear * totalMiles / totalDays
-        timeDiff = datetime.timedelta(days= -daysPerYear)
+		totalGals = self.getColSum('gals')
+		totalMiles = self.recordTable[-1].odo - self.recordTable[0].odo
+		averageRange = totalMiles / len(self.recordTable)
+		totalDays = (self.recordTable[-1].date - self.recordTable[0].date).days
+		totalCost = self.getColProdSum('gals', 'dpg')
+		averageMPG = totalMiles / totalGals
+		averageMPY = daysPerYear * totalMiles / totalDays
+		timeDiff = datetime.timedelta(days= -daysPerYear)
 
-        indexOfYearAgo = self.getIndexOfDate(self.recordTable[-1][dateCol] + timeDiff)
-        milesThisYear = self.recordTable[-1][odoCol] - self.recordTable[indexOfYearAgo][odoCol]
-        runningMPY = milesThisYear
+		indexOfYearAgo = self.getIndexOfDate(self.recordTable[-1].date + timeDiff)
+		milesThisYear = self.recordTable[-1].odo - self.recordTable[indexOfYearAgo].odo
+		runningMPY = milesThisYear
 
-        tableLabels = ['Number of records:', len(self.recordTable), '',
-            'Gallons consumed:', "%.1f" % totalGals, 'gal',
-            'Miles travelled:', "%d" % totalMiles, 'mi',
-            'Days on record:', "%d" % totalDays, 'days',
-            'Gas cost:', "%.2f" % totalCost, 'USD',
-            'Average miles/gal:', "%.2f" % averageMPG, 'mi/gal',
-            'Average miles/year:', "%d" % averageMPY, 'mi',
-            'Running miles/year:', "%d" % runningMPY, 'mi',
-            ]
-        
-        return tableLabels
+		tableLabels = ['Number of records:', len(self.recordTable), '',
+			'Gallons consumed:', "%.1f" % totalGals, 'gal',
+			'Miles travelled:', "%d" % totalMiles, 'mi',
+			'Days on record:', "%d" % totalDays, 'days',
+			'Total gas cost:', "%.2f" % totalCost, 'USD',
+			'Average miles/gal:', "%.2f" % averageMPG, 'mi/gal',
+			'Average miles/year:', "%d" % averageMPY, 'mi',
+			'Running miles/year:', "%d" % runningMPY, 'mi',
+			'Average Range:', "%.2f" % averageRange, 'mi',
+			]
+
+		if ('TankSize' in VehProperties and len(VehProperties['TankSize']) > 0):
+			tableLabels.extend(['Theoretical Max. Range', "%.2f" % (averageMPG * float(VehProperties['TankSize'])), 'mi' ])
+		
+		return tableLabels
 
 class EditWindow:
     
-    def __init__(self, interface, database, key):
+    def __init__(self, interface, database, row):
         self.interface = interface
         self.database = database
-        self.key = key
+        self.row = row
         
     def open(self):
-        row = self.database.getRowOf(self.key)
         self.editwindow = gtk.Window()
-        #editwindow.set_size_request(400,300)
 
         self.table = gtk.Table(len(storedFields) + 1, 2, False)
         for x in range(0, len(storedFields)):
@@ -369,14 +496,14 @@ class EditWindow:
 
             if (storedFields[x] == 'fill'):
                 button = gtk.CheckButton(storedFieldLabels[x])
-                button.set_active(self.database.recordTable[row][x])
-                button.connect("clicked", self.interface.updateBool, self.key, x)
+                button.set_active(self.database.recordTable[self.row].fill)
+                button.connect("clicked", self.interface.updateBool, self, x)
                 self.table.attach(button, 1, 2, x, x + 1)
             else:
                 entry = gtk.Entry()
-                entry.set_text(self.database.getText(row, storedFields[x]))
-                entry.connect("activate", self.interface.updateField, self, self.key, x)
-                entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, self.key, x)
+                entry.set_text(self.database.getText(self.row, storedFields[x]))
+                entry.connect("activate", self.interface.updateField, self, x)
+                entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
                 self.table.attach(entry, 1, 2, x, x + 1)
 
         self.editwindow.add(self.table)
@@ -386,7 +513,7 @@ class EditWindow:
         self.editwindow.show_all()
 
     def setWindowTitle(self):
-        self.editwindow.set_title("Edit Record %d" % (self.database.getRowOf(self.key) + 1))
+        self.editwindow.set_title("Edit Record %d" % (self.row + 1))
         return
 
     def update(self):
@@ -397,15 +524,14 @@ class EditWindow:
 
         return
 
-    def editWindowEntryFocusOut(self, widget, event, editwindow, key, col):
+    def editWindowEntryFocusOut(self, widget, event, editwindow, col):
         # this basically throws out the 'event'
-        return self.interface.updateField(widget, editwindow, key, col)
+        return self.interface.updateField(widget, editwindow, col)
 
 
 
 def recordCompare(a, b):
-    # this sorts based on sortField 
-    return cmp(a[sortFieldI], b[sortFieldI])
+    return cmp(a.odo, b.odo)
 
 # This class serves as an interface between other classes and the GTK user interface
 class PyMPG:
@@ -413,6 +539,7 @@ class PyMPG:
     gnuplot_p = False        # not false if a pipe to GNUPLOT is open
     plot_type = ""        # type of plot that has been generated: 'mpd', 'mpg', or 'dpg'
     gnuplot_annot = ""        # extra string to add to GNUPLOT 'plot' command for annotating a graph
+    timeScale = "all"
 
     def __init__(self, dname=None):
 
@@ -420,7 +547,10 @@ class PyMPG:
         self.window.set_title(progname)
         self.window.set_size_request(800, 600)
         self.window.set_position(gtk.WIN_POS_CENTER)
-        self.window.set_icon(pumppb)
+        try:
+            self.window.set_icon(pumppb)
+        except NameError as error:
+            print error
 
         # Menu bar
         mb = gtk.MenuBar()
@@ -561,6 +691,25 @@ class PyMPG:
         sep = gtk.SeparatorMenuItem()
         plotmenu.append(sep)
 
+        self.menuPlotTimeScale = gtk.MenuItem("Time Scale")
+        #self.plotdpdm.connect("activate", self.menuPlot, 'dpd')
+        plotmenu.append(self.menuPlotTimeScale)
+
+	self.menuPlotTimeScaleMenu = gtk.Menu()
+
+	self.menuPlotTimeScaleMenuAll = gtk.MenuItem("All Time")
+	self.menuPlotTimeScaleMenuAll.connect("activate", self.hookMenuPlotTimeScale, "all")
+	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuAll)
+
+	self.menuPlotTimeScaleMenuMonth = gtk.MenuItem("Last Year")
+	self.menuPlotTimeScaleMenuMonth.connect("activate", self.hookMenuPlotTimeScale, "year")
+	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuMonth)
+
+	self.menuPlotTimeScale.set_submenu(self.menuPlotTimeScaleMenu)
+        
+        sep = gtk.SeparatorMenuItem()
+        plotmenu.append(sep)
+
         self.plotMenuClearAnnot = gtk.MenuItem("Clear Highlight")
         self.plotMenuClearAnnot.connect("activate", self.clearAnnot)
         self.plotMenuClearAnnot.set_sensitive(False)
@@ -601,6 +750,12 @@ class PyMPG:
         self.tvcolumn = [None] * len(columnNames)
         for n in range(0, len(columnNames)):
             cell = gtk.CellRendererText()
+            if (fullFields[n] in numFields):
+                #print "Yes"
+                #self.tvcolumn[n].set_alignment(1.0)
+                #import pango
+                #cell.set_property('alignment', pango.ALIGN_RIGHT)
+                cell.set_property('xalign', 1.0)
             self.tvcolumn[n] = gtk.TreeViewColumn(columnNames[n], cell)
             self.tvcolumn[n].set_cell_data_func(cell, self.format_comment, fullFields[n])
             self.treeview.append_column(self.tvcolumn[n])
@@ -645,19 +800,22 @@ class PyMPG:
         print string
         self.statusbar.push(1, string)
 
+    def get_current_row(self):
+        model, it = self.treeview.get_selection().get_selected()
+        return model.get_value(it, 0)
+
     def on_row_select(self, widget):
-        model, iter = self.treeview.get_selection().get_selected()
-        row = model.get_value(iter, 0)
+        row = self.get_current_row()
         self.modifym.set_sensitive(True)
         self.deletem.set_sensitive(True)
-        if (self.gnuplot_p != False): # gnuplot pipe is open
+        if (self.isPlotActive()): # gnuplot pipe is open
             if (self.database.getText(row, self.plot_type) == invalidStr):
                 self.newstatus("Cannot annotate plot, null data point.");
             else:
                 # highlight the corresponding point in the plot
                 #self.gnuplot_p.stdin.write("replot" + "\n")
                 self.gnuplot_annot = ", \"< echo %d %s\" using 1:2 with points lt 3 pt 3" % (
-                    time.mktime(self.database.recordTable[row][storedFields.index('date')].timetuple()),
+                    time.mktime(self.database.recordTable[row].date.timetuple()),
                     self.database.getText(row, self.plot_type))
                 self.plotData(self.plot_type)
             
@@ -701,6 +859,14 @@ class PyMPG:
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
+
+        filter = gtk.FileFilter()
+        filter.set_name("XML files")
+	# since you create a dialect of XML, you can change the file extension, but I don't know what to call it yet 
+        filter.add_pattern("*.xml") 
+        filter.add_pattern("*.pmx") # Python MPG XML? 
+        dialog.add_filter(filter)
+
         filter = gtk.FileFilter()
         filter.set_name("CSV files")
         filter.add_pattern("*.csv")
@@ -722,7 +888,7 @@ class PyMPG:
         return
     
     def internOpenFile(self, filename):
-        self.database.loadfile(filename)
+        self.database.loadFile(filename)
         # Load new interface
         self.makeClean()
         self.on_file_loaded()
@@ -751,6 +917,14 @@ class PyMPG:
                                        )
         
         dialog.set_default_response(gtk.RESPONSE_OK)
+
+	# TODO this is the same as file open... combine
+        filter = gtk.FileFilter()
+        filter.set_name("XML files")
+        filter.add_pattern("*.xml")
+        filter.add_pattern("*.pmx")
+        dialog.add_filter(filter)
+
         filter = gtk.FileFilter()
         filter.set_name("CSV files")
         filter.add_pattern("*.csv")
@@ -777,6 +951,7 @@ class PyMPG:
         return
     
     def internFileSave(self):
+	# TODO this might change
         self.database.saveFile()
         
         self.makeClean()
@@ -826,10 +1001,10 @@ class PyMPG:
         editwindow.set_title("Vehicle Preferences")
         #editwindow.set_size_request(400,300)
 
-        table = gtk.Table(len(self.database.vehPrefFields) + 1, 2, False)
+        table = gtk.Table(len(vehPrefFields) + 1, 2, False)
         
-        for x in range(0, len(self.database.vehPrefFields)):
-            field = self.database.vehPrefFields[x]
+        for x in range(0, len(vehPrefFields)):
+            field = vehPrefFields[x]
             label = gtk.Label(field)
             table.attach(label, 0, 1, x, x + 1)
 
@@ -867,7 +1042,6 @@ class PyMPG:
     def menuEditPreferences(self, widget):
         editwindow = gtk.Window()
         editwindow.set_title("User Preferences")
-        #editwindow.set_size_request(400,300)
 
         table = gtk.Table(len(UserPreferences) + 1, 2, False)
         
@@ -910,8 +1084,7 @@ class PyMPG:
     def menuEditDel(self, widget):
         # ask user if they're sure when I learn how
 
-        model, iter = self.treeview.get_selection().get_selected()
-        row = model.get_value(iter, 0)
+        row = self.get_current_row()
         self.deleteRecord(row)
         return
 
@@ -920,24 +1093,35 @@ class PyMPG:
         return
 
     def editmenumodify(self, widget):
-        model, iter = self.treeview.get_selection().get_selected()
-        row = model.get_value(iter, 0)
-        self.createEditWindow(row)
+        row = self.get_current_row()
+        self.createEditWindow(modelrow)
         return
 
     # this is much more straightforward than some other things I was doing for set_sensitive. 
     # Need to implement this mechanism there. 
     def updateMenuPlot(self, widget):
         self.plotMenuClearAnnot.set_sensitive(self.gnuplot_annot != "")
-        self.plotMenuSave.set_sensitive(self.gnuplot_p != False)
+        self.plotMenuSave.set_sensitive(self.isPlotActive())
+        return
+
+    def changeTimeScale(self, field):
+        self.timeScale = field
+        self.updatePlot()
+        return
+
+    def hookMenuPlotTimeScale(self, widget, field):
+        self.changeTimeScale(field)
         return
 
     def menuPlot(self, widget, field):
         self.plotData(field)
         return
     
+    def isPlotActive(self):
+        return (self.gnuplot_p != False and self.gnuplot_p.poll() == None)
+
     def updatePlot(self):
-        if (self.gnuplot_p != False):
+        if (self.isPlotActive()):
             self.plotData(self.plot_type)
         return
 
@@ -947,7 +1131,7 @@ class PyMPG:
 
         self.plot_type = field # Save the type of plot that was requested
 
-        titles = {'mpd': 'Mileage',
+        titles = {'mpd': 'Mileage per Day',
             'mpg': 'Fuel Economy',
             'dpg': 'Fuel Price per Gallon',
             'dpd': 'Fuel Cost per Day',
@@ -959,10 +1143,13 @@ class PyMPG:
             }
 
         commands = [
+            "set term %s" % UserPreferences['GnuPlotTerm'], # having trouble with default 'aqua' on Mac OSX
             "set xdata time",
             "set timefmt '%s'",
-            "set xtics rotate by 90",
+            #"set xtics rotate by 90",
+            "set xtics nomirror rotate by -75",
             "set autoscale",
+            "set log y" if (field == "mpd" or field == "dpd") else "unset log",
             "unset key",
             "set grid",
 
@@ -973,29 +1160,50 @@ class PyMPG:
             "plot '-' using 1:2 with lines%s" % self.gnuplot_annot,
             ]
 
-        if (self.gnuplot_p == False or self.gnuplot_p.poll() == 0):
+        if (not self.isPlotActive()):
             print UserPreferences['GnuPlotPath']
-            self.gnuplot_p = subprocess.Popen(UserPreferences['GnuPlotPath'], shell=True,
+            self.gnuplot_p = subprocess.Popen(
+                UserPreferences['GnuPlotPath'], shell=True,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                #stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
                 )
+            #gnuplot_in = open('gnuplot.in', 'w')
+            #print self.gnuplot_p.stdout.readline()
 
         for cmd in commands:
-            if (self.gnuplot_p.poll() == 0):
+            if (self.gnuplot_p.poll() != None):
                 print "GNUPLOT terminated."
-                break
+                return
 
+            #print >> gnuplot_in, cmd
             self.gnuplot_p.stdin.write(cmd + "\n")
+
+
+        #oldestDate = int(time.mktime(self.database.recordTable[-1][storedFields.index('date')].timetuple())) - 31557600.0 #6*(52.0/12)*7*24*3600
+        oldestDate = mktimestamp(self.database.recordTable[-1].date) - 31557600.0 #6*(52.0/12)*7*24*3600
+        print oldestDate
+	# DONE make this [storedFields.index('whatever')] into .whatever
+	# TODO make function for time.mktime(time).timetuple()
+        #print self.gnuplot_p.communicate()
+        #print self.gnuplot_p.stdout.read()
 
         # write each of the records to the pipe
         for x in range(0, len(self.database.recordTable)):
-            if (not (field == "mpg" and not self.database.recordTable[x][storedFields.index('fill')])):
+            if ( (self.timeScale == "all" or \
+                (self.timeScale == "year" and (mktimestamp(self.database.recordTable[x].date) > oldestDate) ) \
+                and not (field == "mpg" and not self.database.recordTable[x].fill))):
                 # Convert the datetime obj to Epoch seconds
-                secs = "%d" % time.mktime(self.database.recordTable[x][storedFields.index('date')].timetuple())
-                self.gnuplot_p.stdin.write(secs + "\t" + self.database.getText(x, field) + "\n")
+                secs = "%d" % time.mktime(self.database.recordTable[x].date.timetuple())
+                wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
+                #print >> gnuplot_in, wfmstr
+                self.gnuplot_p.stdin.write(wfmstr)
         self.gnuplot_p.stdin.write("e\n")
+	
+	#self.gnuplot_p.stdout.read()
 
         self.newstatus("Generated %s plot." % titles[field])
+        #gnuplot_in.flush(); gnuplot_in.close()
 
         return
 
@@ -1045,7 +1253,6 @@ class PyMPG:
         
         self.editwindow = gtk.Window()
         self.editwindow.set_title("Create New Record")
-        #editwindow.set_size_request(320,240)
 
         table = gtk.Table(len(storedFields) + 1, 2, False)
         self.newRecordEntries = []
@@ -1089,19 +1296,20 @@ class PyMPG:
 
     def saveNewRecord(self, widget):
         newrownum = len(self.database.recordTable)
-        newrow = []
+        newrow = dict()
 
         try:
             for x in range(0, len(storedFields)):
                 if (storedFields[x] == 'fill'):
-                    newrow.append(self.newRecordEntries[x].get_active())
+                    newrow[storedFields[x]] = "Yes" if self.newRecordEntries[x].get_active() else "No"
                 else:
                     if (storedFields[x] in ['odo', 'gals', 'dpg'] 
                         and self.newRecordEntries[x].get_text() == ""):
                         raise NameError('Missing required field')
-                    newrow.append(self.database.checkText(
-                        storedFields[x],
-                        self.newRecordEntries[x].get_text()))
+                    newrow[storedFields[x]] = self.newRecordEntries[x].get_text()
+			#FuelRecord.formatText(
+                        #storedFields[x],
+                        #self.newRecordEntries[x].get_text())
                     
             # want to do a check here for the date being wrong
             # records are sorted by odometer, need to make sure this record isn't before the previous or after the next 
@@ -1113,7 +1321,7 @@ class PyMPG:
 
             # If entries OK
             self.makeDirty()
-            self.database.addNewRecord(newrow)
+            self.database.addNewRecord(FuelRecord(newrow))
             self.updateList()
             self.updatePlot()
             self.newstatus("New record created.")
@@ -1125,6 +1333,7 @@ class PyMPG:
         self.recordList = gtk.ListStore(object)
 # TODO improve sorting flexibility here 
         for i in range(len(self.database.recordTable) - 1, -1, -1):
+        #for i in range(0, len(self.database.recordTable)):
             self.recordList.append([i])
         self.treeview.set_model(self.recordList)
         
@@ -1137,21 +1346,14 @@ class PyMPG:
     def deleteRecord(self, row):
         del self.database.recordTable[row]
         
-        # BEGIN this could be a function
-        self.recordList.clear()
-        for i in range(0, len(self.database.recordTable)):
-            self.recordList.append([i])
-        # END this could be a function
+	self.updateList()
 
         self.makeDirty()
-        self.newstatus("Deleted record %d" % row)
+        self.newstatus("Deleted record %d" % (row + 1))
         return
 
     def editrecord(self, tree, path, column):
-        #editdialog = gtk.Dialog(title="Edit Record", parent=self.window)
-        #row = model.get_value(iter, 0)
-        #print self, tree, path, column
-        self.createEditWindow(path[0])
+        self.createEditWindow(self.get_current_row())
         return
 
     def openAboutWindow(self, widget):
@@ -1172,9 +1374,10 @@ class PyMPG:
 
         tableLabels = self.database.getSummaryTable()
 
+	numRows = len(tableLabels)/3
 
-        table = gtk.Table(6, 2, False)
-        for i in range(0, len(tableLabels) / 3):
+        table = gtk.Table(numRows, 2, False)
+        for i in range(0, numRows):
             myLabel = gtk.Label(tableLabels[3 * i])
             myLabel.set_alignment(0, 0.5)
             table.attach(myLabel, 1, 2, i, i + 1, ypadding=4, xpadding=8)
@@ -1197,40 +1400,40 @@ class PyMPG:
         return
 
     def createEditWindow(self, row):
-        editwindow = EditWindow(self, self.database, self.database.getKeyOf(row))
+        editwindow = EditWindow(self, self.database, row)
         editwindow.open()
         self.newstatus("Opened window to edit record %d" % (row + 1))
         return
 
-    def updateBool(self, button, row, col):
+    def updateBool(self, button, window, col):
         self.makeDirty()
-        self.database.recordTable[row][col] = button.get_active()
+        self.database.recordTable[window.row][col] = button.get_active()
         self.newstatus("Set %s to %s on record %d" % 
                        (storedFieldLabels[col],
-                        "Yes" if button.get_active() else "No", row)
+                        "Yes" if button.get_active() else "No", window.row)
                        )
         self.window.queue_draw()
         return
 
-    def updateField(self, entry, editwindow, key, col):
-        row = self.database.getRowOf(key)
-        if (entry.get_text() != self.database.getText(row, storedFields[col])):
+    def updateField(self, entry, editwindow, col):
+        if (entry.get_text() != self.database.getText(editwindow.row, storedFields[col])):
             self.makeDirty()
             # need to catch exceptions here and throw up errors
             try:
-                self.database.setText(row, storedFields[col], entry.get_text())
+                self.database[editwindow.row].setText(storedFields[col], entry.get_text())
                 
-                ### TODO this enables you to break the edit window ! ! ! 
-                if (col == sortFieldI):
+                if (col == sortField):
+                    key = self.database[editwindow.row][storedFields[sortField]]
                     self.database.sortRecords()
                     newrow = self.database.getRowOf(key)
-                    if (newrow != row):
+                    if (newrow != editwindow.row):
+                        editwindow.row = newrow
                         self.updateList()
                         editwindow.update()
                         self.newstatus("Warning: You have changed the position of the record to %d" % (newrow+1))
     
                 # redraw main window here
-                self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (row+1)))
+                self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (editwindow.row+1)))
                 self.window.queue_draw()
                 self.updatePlot()
                 
@@ -1247,9 +1450,9 @@ class PyMPG:
         md.run()
         md.destroy()
 
-    # this function could be parameterized and shared with location and station callbacks
-    def format_comment(self, column, cell, model, iter, field):
-        row = model.get_value(iter, 0)
+    def format_comment(self, column, cell, model, it, field):
+        row = model.get_value(it, 0)
+        #row = self.get_current_row()
         cell.set_property('text', self.database.getText(row, field))
         return 
 
@@ -1286,5 +1489,6 @@ class PyMPG:
             self.statusbar.hide()
 
 
-PyMPG()
+gui = PyMPG()
+#gui.window.destroy()
 gtk.main()
