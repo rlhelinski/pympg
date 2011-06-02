@@ -74,6 +74,9 @@ def xml_indent(elem, level=0):
 def mktimestamp(timeobj):
 	return int(time.mktime(timeobj.timetuple()))
 
+def fmttimestamp(timestamp):
+	return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
+
 # TODO most of these should move to the record class
 storedFields = Enum('odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment')
 storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment')
@@ -185,6 +188,10 @@ class DataBase :
 	recordTable = []		# the actual records
 	
 	def __getitem__(self, index):
+		"""
+		This prevents you from having to use the recordTable directly. 
+		i.e., myDB.recordTable[index] -> myDB[index]
+		"""
 		return self.recordTable[index]
 
 	def newfile(self):
@@ -244,7 +251,7 @@ class DataBase :
 			if (row == 0):
 				return invalidStr
 
-			timedelta = self.recordTable[row].date - self.recordTable[row - 1].date
+			timedelta = self[row].date - self[row - 1].date
 
 			return "%d" % timedelta.days
 
@@ -252,14 +259,14 @@ class DataBase :
 			if (row == 0):
 				return invalidStr
 
-			return "%d" % (self.recordTable[row].odo - self.recordTable[row - 1].odo)
+			return "%d" % (self[row].odo - self[row - 1].odo)
 
 		elif (field == "mpd"):
 			if (row == 0):
 				return invalidStr
 
-			dist = self.recordTable[row].odo - self.recordTable[row - 1].odo
-			timedelta = self.recordTable[row].date - self.recordTable[row - 1].date
+			dist = self[row].odo - self[row - 1].odo
+			timedelta = self[row].date - self[row - 1].date
 			days = timedelta.days
 
 			# This saturates to "miles per fill-up" in the case of more than one 
@@ -274,17 +281,17 @@ class DataBase :
 			return "%d" % mpd
 
 		elif (field == "mpg"):
-			if (row == 0 or not self.recordTable[row].fill):
+			if (row == 0 or not self[row].fill):
 				# no MPG for this record
 				return invalidStr
 			else:
 				lastFill = 1 
-				totalFuel = self.recordTable[row].gals
-				while (not self.recordTable[row - lastFill].fill):
+				totalFuel = self[row].gals
+				while (not self[row - lastFill].fill):
 					lastFill = lastFill + 1
-					totalFuel = totalFuel + self.recordTable[row - lastFill].gals
+					totalFuel = totalFuel + self[row - lastFill].gals
 
-				totalMiles = self.recordTable[row].odo - self.recordTable[row - lastFill].odo
+				totalMiles = self[row].odo - self[row - lastFill].odo
 				return "%0.1f" % (totalMiles / totalFuel)
 			
 		elif (field == "dpd"):
@@ -310,11 +317,11 @@ class DataBase :
 			
 		# it's just a stored field 
 		else: 
-			return self.recordTable[row].getText(field)
+			return self[row].getText(field)
 
 	def getRowOf(self, key):
 		for x in range(0, len(self.recordTable)):
-			if (key == self.recordTable[x][storedFields[sortField]]): 
+			if (key == self[x][storedFields[sortField]]): 
 				return x
 			
 		return False
@@ -332,7 +339,7 @@ class DataBase :
 
 			i = 0
 			for i in range(0, len(self.recordTable)):
-				fileWriter.writerow(self.recordTable[i].tolist())
+				fileWriter.writerow(self[i].tolist())
 
 		elif (self.filename.lower().endswith('xml')):
 			# Create an XML
@@ -353,7 +360,7 @@ class DataBase :
 
 			i = 0
 			for i in range(0, len(self.recordTable)):
-				etree.SubElement(myfuel, 'record', attrib=self.recordTable[i].todict())
+				etree.SubElement(myfuel, 'record', attrib=self[i].todict())
 
 			xmlfile = open(self.filename, 'w')
 			xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
@@ -379,9 +386,10 @@ class DataBase :
 		return
 
 	def deleteRecord(self, row):
-		del(self.recordTable[row])
+		del(self[row])
 		return
 	   
+	# TODO broken
 	def exportWaveform(self, filename):
 		waveform = self.createWaveform()
 		wfmfile = open(filename, 'w')
@@ -411,12 +419,12 @@ class DataBase :
 			for y in range(0, len(self.fullFields)):
 				if (self.fullFields[y] == 'date'):
 					# Convert the datetime obj to Epoch seconds
-					line += "%d" % time.mktime(self.recordTable[x][storedFields.date].timetuple())
+					line += "%d" % time.mktime(self[x][storedFields.date].timetuple())
 				elif (not self.fullFields[y] in wfmcols):
 					# Skip these, they're not useful for plotting
 					pass
 				else:
-					line += "\t" + self.recordTable[x].getText(self.fullFields[y]) 
+					line += "\t" + self[x].getText(self.fullFields[y]) 
 
 			# Make certain sequences GNUPLOT-friendly
 			line = line.replace('*', '')
@@ -429,20 +437,20 @@ class DataBase :
 	def getColSum(self, field):
 		sum = 0
 		for i in range(0, len(self.recordTable)):
-			sum += float(self.recordTable[i][field])
+			sum += float(self[i][field])
 
 		return sum
 
 	def getColProdSum(self, field1, field2):
 		sum = 0
 		for i in range(0, len(self.recordTable)):
-			sum += float(self.recordTable[i][field1]) * float(self.recordTable[i][field2])
+			sum += float(self[i][field1]) * float(self[i][field2])
 
 		return sum
 	   
 	def getIndexOfDate(self, date):
 		index = len(self.recordTable) - 1
-		while (self.recordTable[index].date > date):
+		while (self[index].date > date):
 			index = index - 1
 		return index
 
@@ -451,16 +459,16 @@ class DataBase :
 	def getSummaryTable(self): 
 
 		totalGals = self.getColSum('gals')
-		totalMiles = self.recordTable[-1].odo - self.recordTable[0].odo
+		totalMiles = self[-1].odo - self[0].odo
 		averageRange = totalMiles / len(self.recordTable)
-		totalDays = (self.recordTable[-1].date - self.recordTable[0].date).days
+		totalDays = (self[-1].date - self[0].date).days
 		totalCost = self.getColProdSum('gals', 'dpg')
 		averageMPG = totalMiles / totalGals
 		averageMPY = daysPerYear * totalMiles / totalDays
 		timeDiff = datetime.timedelta(days= -daysPerYear)
 
-		indexOfYearAgo = self.getIndexOfDate(self.recordTable[-1].date + timeDiff)
-		milesThisYear = self.recordTable[-1].odo - self.recordTable[indexOfYearAgo].odo
+		indexOfYearAgo = self.getIndexOfDate(self[-1].date + timeDiff)
+		milesThisYear = self[-1].odo - self[indexOfYearAgo].odo
 		runningMPY = milesThisYear
 
 		tableLabels = ['Number of records:', len(self.recordTable), '',
@@ -496,7 +504,7 @@ class EditWindow:
 
             if (storedFields[x] == 'fill'):
                 button = gtk.CheckButton(storedFieldLabels[x])
-                button.set_active(self.database.recordTable[self.row].fill)
+                button.set_active(self.database[self.row].fill)
                 button.connect("clicked", self.interface.updateBool, self, x)
                 self.table.attach(button, 1, 2, x, x + 1)
             else:
@@ -815,7 +823,7 @@ class PyMPG:
                 # highlight the corresponding point in the plot
                 #self.gnuplot_p.stdin.write("replot" + "\n")
                 self.gnuplot_annot = ", \"< echo %d %s\" using 1:2 with points lt 3 pt 3" % (
-                    time.mktime(self.database.recordTable[row].date.timetuple()),
+                    time.mktime(self.database[row].date.timetuple()),
                     self.database.getText(row, self.plot_type))
                 self.plotData(self.plot_type)
             
@@ -1180,9 +1188,9 @@ class PyMPG:
             self.gnuplot_p.stdin.write(cmd + "\n")
 
 
-        #oldestDate = int(time.mktime(self.database.recordTable[-1][storedFields.index('date')].timetuple())) - 31557600.0 #6*(52.0/12)*7*24*3600
-        oldestDate = mktimestamp(self.database.recordTable[-1].date) - 31557600.0 #6*(52.0/12)*7*24*3600
-        print oldestDate
+        #oldestDate = int(time.mktime(self.database[-1][storedFields.index('date')].timetuple())) - 31557600.0 #6*(52.0/12)*7*24*3600
+        oldestDate = mktimestamp(self.database[-1].date) - 31557600.0 #6*(52.0/12)*7*24*3600
+        print "Date range: " + fmttimestamp(oldestDate) + " to now"
 	# DONE make this [storedFields.index('whatever')] into .whatever
 	# TODO make function for time.mktime(time).timetuple()
         #print self.gnuplot_p.communicate()
@@ -1191,10 +1199,10 @@ class PyMPG:
         # write each of the records to the pipe
         for x in range(0, len(self.database.recordTable)):
             if ( (self.timeScale == "all" or \
-                (self.timeScale == "year" and (mktimestamp(self.database.recordTable[x].date) > oldestDate) ) \
-                and not (field == "mpg" and not self.database.recordTable[x].fill))):
+                (self.timeScale == "year" and (mktimestamp(self.database[x].date) > oldestDate) ) \
+                and not (field == "mpg" and not self.database[x].fill))):
                 # Convert the datetime obj to Epoch seconds
-                secs = "%d" % time.mktime(self.database.recordTable[x].date.timetuple())
+                secs = "%d" % time.mktime(self.database[x].date.timetuple())
                 wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
                 #print >> gnuplot_in, wfmstr
                 self.gnuplot_p.stdin.write(wfmstr)
@@ -1344,7 +1352,7 @@ class PyMPG:
         return
 
     def deleteRecord(self, row):
-        del self.database.recordTable[row]
+        del self.database[row]
         
 	self.updateList()
 
@@ -1407,7 +1415,7 @@ class PyMPG:
 
     def updateBool(self, button, window, col):
         self.makeDirty()
-        self.database.recordTable[window.row][col] = button.get_active()
+        self.database[window.row][col] = button.get_active()
         self.newstatus("Set %s to %s on record %d" % 
                        (storedFieldLabels[col],
                         "Yes" if button.get_active() else "No", window.row)
