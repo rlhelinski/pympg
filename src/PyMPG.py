@@ -81,10 +81,10 @@ def fmttimestamp(timestamp):
 storedFields = Enum('odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment')
 storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment')
 
-fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'station', 'location', 'fill', 'comment')
-columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', 'Station', 'Location', 'Fill?', 'Comment')
+fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm', 'station', 'location', 'fill', 'comment')
+columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', '$/mi', 'Station', 'Location', 'Fill?', 'Comment')
 
-numFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd')
+numFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm')
 
 # columns to put into waveform
 wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg')
@@ -245,6 +245,18 @@ class DataBase :
 
 		return
 
+	def sumWhileFalse(self, row, sumfield, checkfield):
+		lastTrue = 1 # assume the next oldest field is true
+		total = float( self.getText(row, sumfield) )
+
+		while (self.getText(row - lastTrue, checkfield) != "Yes"):
+			total = total + float( self.getText(row - lastTrue, sumfield) ) 
+			lastTrue = lastTrue + 1
+		
+		#print [self.getText(row, "odo"), row, lastTrue, sumfield, checkfield, total]
+
+		return [lastTrue, total]
+
 	def getText(self, row, field):
 		# hooks for certain derived fields
 		if (field == "days"):
@@ -285,13 +297,9 @@ class DataBase :
 				# no MPG for this record
 				return invalidStr
 			else:
-				lastFill = 1 
-				totalFuel = self[row].gals
-				while (not self[row - lastFill].fill):
-					lastFill = lastFill + 1
-					totalFuel = totalFuel + self[row - lastFill].gals
+				totalMiles = self.sumWhileFalse(row, "dist", "fill")[1]
+				totalFuel = self.sumWhileFalse(row, "gals", "fill")[1]
 
-				totalMiles = self[row].odo - self[row - lastFill].odo
 				return "%0.1f" % (totalMiles / totalFuel)
 			
 		elif (field == "dpd"):
@@ -302,19 +310,36 @@ class DataBase :
 				# recursive calls here
 				tankcost = float( self.getText(row, "tankcost") )
 				days = float( self.getText(row, "days") )
-				
+
 				# dollars / day = tankcost / days 
 				return "%0.2f" % (tankcost / days) 
-
-				# dollars / day = ( dollars / gallon ) * ( miles / gallon ) ^ -1 * ( miles / day )
-				#return "%0.2e" % (dpg / mpg * mpd)
 
 			except ValueError:
 				return invalidStr
 
 			except ZeroDivisionError:
 				return invalidStr
+
+		elif (field == "dpm"):
+			# dollars per mile 
 			
+			if (row == 0 or not self[row].fill):
+			# if did not fill, then tankcost does not correspond to distance
+				return invalidStr
+
+			try:
+				tankcost = self.sumWhileFalse(row, "tankcost", "fill")[1]
+				dist = self.sumWhileFalse(row, "dist", "fill")[1]
+			
+				# [tank cost] / [miles traveled] 
+				return "%0.3f" % (tankcost / dist) 
+
+			except ValueError:
+				return invalidStr
+
+			except ZeroDivisionError:
+				return invalidStr
+
 		# it's just a stored field 
 		else: 
 			return self[row].getText(field)
@@ -691,6 +716,10 @@ class PyMPG:
         self.plotdpgm = gtk.MenuItem("Dollars/Gal")
         self.plotdpgm.connect("activate", self.menuPlot, 'dpg')
         plotmenu.append(self.plotdpgm)
+        
+        self.plotdpmm = gtk.MenuItem("Dollars/Mile")
+        self.plotdpmm.connect("activate", self.menuPlot, 'dpm')
+        plotmenu.append(self.plotdpmm)
         
         self.plotdpdm = gtk.MenuItem("Dollars/Day")
         self.plotdpdm.connect("activate", self.menuPlot, 'dpd')
@@ -1142,11 +1171,13 @@ class PyMPG:
         titles = {'mpd': 'Mileage per Day',
             'mpg': 'Fuel Economy',
             'dpg': 'Fuel Price per Gallon',
+            'dpm': 'Fuel Cost per Mile',
             'dpd': 'Fuel Cost per Day',
             }
         ylabels = {'mpd': 'Miles per Day [mi/day]',
             'mpg': 'Miles per Gallon [mi/gal]',
             'dpg': 'Dollars per Gallon [$/gal]',
+            'dpm': 'Dollars per Mile [$/mi]',
             'dpd': 'Dollars per Day [$/day]',
             }
 
