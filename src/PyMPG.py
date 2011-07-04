@@ -1517,7 +1517,7 @@ class PyMPG:
             file_basename = self.database.filename.split('/')[-1]
             file_basename = file_basename.split('\\')[-1] # for Winblows compat
             self.window.set_title("%s - %s%s" % (progname,
-                file_basename,
+                (" ".join(VehProperties[field] for field in ['Year', 'Make', 'Model']) + ' (' + file_basename + ')') if VehProperties['Make'] != "" else file_basename,
                 "*" if self.database.dirty_bit else ""))
         return
 
