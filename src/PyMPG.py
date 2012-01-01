@@ -738,9 +738,13 @@ class PyMPG:
 	self.menuPlotTimeScaleMenuAll.connect("activate", self.hookMenuPlotTimeScale, "all")
 	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuAll)
 
-	self.menuPlotTimeScaleMenuMonth = gtk.MenuItem("Last Year")
-	self.menuPlotTimeScaleMenuMonth.connect("activate", self.hookMenuPlotTimeScale, "year")
-	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuMonth)
+	self.menuPlotTimeScaleMenuYear = gtk.MenuItem("Last Year")
+	self.menuPlotTimeScaleMenuYear.connect("activate", self.hookMenuPlotTimeScale, "year")
+	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuYear)
+
+	self.menuPlotTimeScaleMenuPeriodic = gtk.MenuItem("Year Periodic")
+	self.menuPlotTimeScaleMenuPeriodic.connect("activate", self.hookMenuPlotTimeScale, "periodic")
+	self.menuPlotTimeScaleMenu.append(self.menuPlotTimeScaleMenuPeriodic)
 
 	self.menuPlotTimeScale.set_submenu(self.menuPlotTimeScaleMenu)
         
@@ -1183,20 +1187,18 @@ class PyMPG:
 
         commands = [
             "set term %s" % UserPreferences['GnuPlotTerm'], # having trouble with default 'aqua' on Mac OSX
-            "set xdata time",
-            "set timefmt '%s'",
+            "set xdata time" if (self.timeScale != "periodic") else "set xdata",
+            "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             #"set xtics rotate by 90",
-            "set xtics nomirror rotate by -75",
+            "set xtics nomirror rotate by -45" if (self.timeScale != "periodic") else "set xtics rotate by 0",
             "set autoscale",
             "set log y" if (field == "mpd" or field == "dpd") else "unset log",
-            "unset key",
+            "set key" if (self.timeScale == "periodic") else "unset key",
             "set grid",
 
             "set title '%s'" % titles[field],
-            "set xlabel 'Date'",
+            "set xlabel 'Date'" if (self.timeScale != "periodic") else "set xlabel 'Day of the Year'",
             "set ylabel '%s'" % ylabels[field],
-            # the %s here allows me to annotate a point with a string
-            "plot '-' using 1:2 with lines%s" % self.gnuplot_annot,
             ]
 
         if (not self.isPlotActive()):
@@ -1220,24 +1222,45 @@ class PyMPG:
 
 
         #oldestDate = int(time.mktime(self.database[-1][storedFields.index('date')].timetuple())) - 31557600.0 #6*(52.0/12)*7*24*3600
+	# What is this constant I have subtracted? 
         oldestDate = mktimestamp(self.database[-1].date) - 31557600.0 #6*(52.0/12)*7*24*3600
-        print "Date range: " + fmttimestamp(oldestDate) + " to now"
+        print "Data range: " + str(self.database[1].date) + " to " + str(self.database[-1].date)
+        print "Plot range: " + fmttimestamp(oldestDate) + " to " + str(self.database[-1].date)
 	# DONE make this [storedFields.index('whatever')] into .whatever
 	# TODO make function for time.mktime(time).timetuple()
         #print self.gnuplot_p.communicate()
         #print self.gnuplot_p.stdout.read()
 
         # write each of the records to the pipe
-        for x in range(0, len(self.database.recordTable)):
-            if ( (self.timeScale == "all" or \
-                (self.timeScale == "year" and (mktimestamp(self.database[x].date) > oldestDate) ) \
-                and not (field == "mpg" and not self.database[x].fill))):
-                # Convert the datetime obj to Epoch seconds
-                secs = "%d" % time.mktime(self.database[x].date.timetuple())
-                wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
-                #print >> gnuplot_in, wfmstr
-                self.gnuplot_p.stdin.write(wfmstr)
-        self.gnuplot_p.stdin.write("e\n")
+	if (self.timeScale == "periodic"):
+            cmdStr = []
+            for year in range(self.database[1].date.year, self.database[-1].date.year+1):
+            	cmdStr.append(" '-' using 1:2 with lines title '%s'" % year)
+
+            self.gnuplot_p.stdin.write("plot " + ", ".join(cmdStr) + "\n")
+                
+            for year in range(self.database[1].date.year, self.database[-1].date.year+1):
+                for x in range(0, len(self.database.recordTable)):
+                    if ( (self.database[x].date.year == year) and self.database.getText(x, field) != invalidStr ):
+                        # Here, I want the day of the year 
+                        secs = "%d" % (self.database[x].date.timetuple().tm_yday)
+                        wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
+                        self.gnuplot_p.stdin.write(wfmstr)
+        	self.gnuplot_p.stdin.write("e\n")
+                        
+        else:
+            # the %s here allows me to annotate a point with a string
+            self.gnuplot_p.stdin.write("plot '-' using 1:2 with lines%s\n" % self.gnuplot_annot)
+            for x in range(0, len(self.database.recordTable)):
+	        if ( (self.timeScale == "all" or \
+                    (self.timeScale == "year" and (mktimestamp(self.database[x].date) > oldestDate) ) \
+                    and not (field == "mpg" and not self.database[x].fill))):
+                    # Convert the datetime obj to Epoch seconds
+                    secs = "%d" % time.mktime(self.database[x].date.timetuple())
+                    wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
+                    #print >> gnuplot_in, wfmstr
+                    self.gnuplot_p.stdin.write(wfmstr)
+            self.gnuplot_p.stdin.write("e\n")
 	
 	#self.gnuplot_p.stdout.read()
 
