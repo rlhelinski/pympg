@@ -78,11 +78,11 @@ def fmttimestamp(timestamp):
 	return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
 
 # TODO most of these should move to the record class
-storedFields = Enum('odo', 'date', 'gals', 'dpg', 'location', 'station', 'fill', 'comment')
-storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Location', 'Station', 'Filled?', 'Comment')
+storedFields = Enum('odo', 'date', 'gals', 'dpg', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment')
+storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Station', 'Address', 'City', 'State', 'ZIP', 'Filled?', 'Comment')
 
-fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm', 'station', 'location', 'fill', 'comment')
-columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', '$/mi', 'Station', 'Location', 'Fill?', 'Comment')
+fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment')
+columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', '$/mi', 'Station', 'Address', 'City', 'State', 'ZIP', 'Fill?', 'Comment')
 
 numFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm')
 
@@ -130,7 +130,11 @@ class FuelRecord():
 
 	def fromdict(self, mydict):
 		for field in storedFields:
-			self.fields[field] = self.formatText(field, mydict[field])
+			try:
+				self.fields[field] = self.formatText(field, mydict[field])
+			except KeyError:
+				# Could use a getDefault() method
+				self.fields[field] = (False if (field == 'fill') else "")
 
 	def tolist(self):
                 j = 0
@@ -177,7 +181,7 @@ class FuelRecord():
 		elif (field == "fill"):
 			retval = (text.lower() == "yes")
 		else:	# return value as-is
-			retval = text
+			retval = text.strip()
 
 		return retval
 
@@ -193,6 +197,9 @@ class DataBase :
 		i.e., myDB.recordTable[index] -> myDB[index]
 		"""
 		return self.recordTable[index]
+
+	def __len__(self):
+		return len(self.recordTable)
 
 	def newfile(self):
 		self.recordTable = []
@@ -458,6 +465,13 @@ class DataBase :
 
 		return wfm
 
+	def getCol(self, field):
+		col = []
+		# TODO why can't I say: for item in self.recordTable ?
+		for i in range(0, len(self.recordTable)):
+			col.append(self[i][field])
+
+		return col
 	   
 	def getColSum(self, field):
 		sum = 0
@@ -537,6 +551,19 @@ class EditWindow:
                 entry.set_text(self.database.getText(self.row, storedFields[x]))
                 entry.connect("activate", self.interface.updateField, self, x)
                 entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
+		if (storedFields[x] not in ['odo', 'date', 'gallons', 'dpg']):
+			# Auto-completion
+			completion = gtk.EntryCompletion()
+			liststore = gtk.ListStore(str)
+			entry.set_completion(completion)
+			completion.set_model(liststore)
+			completion.set_text_column(0)
+			# TODO Might be able to use the interface.recordList ListStore
+			column = self.database.getCol(storedFields[x])
+			column = set(column)
+			for item in column:
+				liststore.append([item])
+
                 self.table.attach(entry, 1, 2, x, x + 1)
 
         self.editwindow.add(self.table)
