@@ -112,8 +112,14 @@ class FuelRecord():
 		elif (type(source) == dict):
 			self.fromdict(source)
 
+	def __contains__(self, name):
+		return name in self.fields.keys()
+
 	def __getattr__(self, name): # object.name, return raw data
 		return self.fields[name]
+
+	def __setitem__(self, name, value):
+		self.fields[name] = value
 
 	def __repr__(self): # string representation
 		return str(self.fields)
@@ -185,11 +191,22 @@ class FuelRecord():
 
 		return retval
 
+class Address:
+	def __init__(self, address="", city="", state="", zip=0):
+		self.address = address
+		self.city = city
+		self.state = state
+		self.zip = zip
+	#def __getitem__(self, name):
+		#self.__getattr__(name)
+
 # This class opens/saves files, and manages the data in memory
 class DataBase :
+	# variables here are static 
 	dirty_bit = False		# true if the data from the file has been modified
 	filename = ""		 # name of the file that's open
 	recordTable = []		# the actual records
+	addressTable = [] 		# addresses of stations 
 	
 	def __getitem__(self, index):
 		"""
@@ -417,6 +434,29 @@ class DataBase :
 		self.recordTable.sort(recordCompare)
 		return
 
+	def updateAddressBook(self):
+		"""Create a map from station names to addresses"""
+		self.addressTable = dict()
+		for record in self.recordTable:
+			if (record.station not in self.addressTable.keys()):
+				# Not sure what to do yet, almost calls for a pop-up display
+				#self.addressTable[record.station] = None
+				self.addressTable[record.station] = Address(record.address, record.city, record.state, record.zip)
+			else:
+				for addressField in ['address', 'city', 'state', 'zip']:
+					# TODO replace record.fields.keys() and record.fields[]
+					if ((self.addressTable[record.station].__dict__[addressField] == "") and (addressField in record)):
+						#record.__dict__[addressField]
+					#print record.__dict__.keys()
+					#if (addressField in record.__dict__.keys()):
+						self.addressTable[record.station].__dict__[addressField] = record[addressField]
+		# Delete non-unique addresses
+		#for name, address in self.addressTable.items():
+			#if (address == None):
+				#del self.addressTable[name]
+		for name in self.addressTable.keys():
+			print name, ",", self.addressTable[name].address
+
 	def deleteRecord(self, row):
 		del(self[row])
 		return
@@ -532,11 +572,27 @@ class EditWindow:
         self.interface = interface
         self.database = database
         self.row = row
-        
+
+    def updateField(self, entry, editwindow, col):
+        self.interface.updateField(entry, editwindow, col)
+        #print "DEBUG: Update field"
+	if (col == storedFields.station):
+            #print "DEBUG: Update station"
+            self.database.updateAddressBook() # TODO might not be best placed here 
+	    if (entry.get_text() in self.database.addressTable.keys()):
+	    # Update the address, city, state and zip 
+                #print "DEBUG: Yes"
+	        for addressField in ['address', 'city', 'state', 'zip']:
+                    if (editwindow.entryMap[addressField].get_text() == ""):
+                        text = self.database.addressTable[entry.get_text()].__dict__[addressField]
+                        self.entryMap[addressField].set_text(text)
+		    	self.database[self.row][addressField] = text       
+
     def open(self):
         self.editwindow = gtk.Window()
 
         self.table = gtk.Table(len(storedFields) + 1, 2, False)
+        self.entryMap = dict()
         for x in range(0, len(storedFields)):
             label = gtk.Label(storedFieldLabels[x])
             self.table.attach(label, 0, 1, x, x + 1)
@@ -546,10 +602,11 @@ class EditWindow:
                 button.set_active(self.database[self.row].fill)
                 button.connect("clicked", self.interface.updateBool, self, x)
                 self.table.attach(button, 1, 2, x, x + 1)
+                self.entryMap[storedFields[x]] = button
             else:
                 entry = gtk.Entry()
                 entry.set_text(self.database.getText(self.row, storedFields[x]))
-                entry.connect("activate", self.interface.updateField, self, x)
+                entry.connect("activate", self.updateField, self, x)
                 entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
 		if (storedFields[x] not in ['odo', 'date', 'gallons', 'dpg']):
 			# Auto-completion
@@ -565,6 +622,7 @@ class EditWindow:
 				liststore.append([item])
 
                 self.table.attach(entry, 1, 2, x, x + 1)
+                self.entryMap[storedFields[x]] = entry
 
         self.editwindow.add(self.table)
         
@@ -586,7 +644,7 @@ class EditWindow:
 
     def editWindowEntryFocusOut(self, widget, event, editwindow, col):
         # this basically throws out the 'event'
-        return self.interface.updateField(widget, editwindow, col)
+        return self.updateField(widget, editwindow, col)
 
 
 
@@ -1505,6 +1563,7 @@ class PyMPG:
         return
 
     def updateField(self, entry, editwindow, col):
+	# If there was a change:
         if (entry.get_text() != self.database.getText(editwindow.row, storedFields[col])):
             self.makeDirty()
             # need to catch exceptions here and throw up errors
