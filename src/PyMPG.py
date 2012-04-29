@@ -588,10 +588,10 @@ class EditWindow:
 	   #print "OK", newrow
            self.row = newrow
 
-	self.prev_button.set_sensitive((self.row - 1) >= 0)
-	self.next_button.set_sensitive((self.row + 1) < len(self.database))
+	   self.prev_button.set_sensitive((self.row - 1) >= 0)
+	   self.next_button.set_sensitive((self.row + 1) < len(self.database))
         
-	self.update()
+	   self.update()
         
     def update(self):
         
@@ -602,6 +602,7 @@ class EditWindow:
 			entry.set_text(self.database.getText(self.row, key))
 
         self.setWindowTitle()
+	self.interface.selectRow(self.row)
 
         return
 
@@ -1564,15 +1565,16 @@ class PyMPG:
         return
 
     def updateBool(self, button, window, col):
-        self.makeDirty()
-        self.database[window.row][storedFields[col]] = button.get_active()
-        self.newstatus("Set %s to %s on record %d" % 
-                       (storedFieldLabels[col],
-                        "Yes" if button.get_active() else "No", window.row)
-                       )
-        self.updateList()
-        self.window.queue_draw()
-        return
+        #print button.get_active(), self.database[window.row][storedFields[col]]
+        if (button.get_active() != (self.database[window.row][storedFields[col]] == "Yes")):
+        	self.makeDirty()
+        	self.database[window.row][storedFields[col]] = button.get_active()
+        	self.newstatus("Set %s to %s on record %d" % 
+                       	(storedFieldLabels[col],
+                        	"Yes" if button.get_active() else "No", window.row)
+                       	)
+        	self.updateList()
+        	self.window.queue_draw()
 
     def updateField(self, entry, editwindow, col):
 	# If there was a change:
@@ -1591,7 +1593,7 @@ class PyMPG:
                         self.updateList()
                         editwindow.update() # to update the window title
                         self.newstatus("Warning: You have changed the position of the record to %d" % (newrow+1))
-                self.treeview.set_cursor(len(self.database) - editwindow.row - 1)
+		self.selectRow(editwindow.row)
     
                 # redraw main window here
                 self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (editwindow.row+1)))
@@ -1603,6 +1605,9 @@ class PyMPG:
                 self.show_error('Invalid format, try again.')
 
         return
+
+    def selectRow(self, row):
+        self.treeview.set_cursor(len(self.database) - row - 1)
 
     def show_error (self, string):
         md = gtk.MessageDialog(None,
