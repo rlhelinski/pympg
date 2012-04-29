@@ -215,6 +215,9 @@ class DataBase :
 		"""
 		return self.recordTable[index]
 
+        def __delitem__ (self, item):
+                del self.recordTable[item]
+        
 	def __len__(self):
 		return len(self.recordTable)
 
@@ -450,12 +453,8 @@ class DataBase :
 					#print record.__dict__.keys()
 					#if (addressField in record.__dict__.keys()):
 						self.addressTable[record.station].__dict__[addressField] = record[addressField]
-		# Delete non-unique addresses
-		#for name, address in self.addressTable.items():
-			#if (address == None):
-				#del self.addressTable[name]
-		for name in self.addressTable.keys():
-			print name, ",", self.addressTable[name].address
+		#for name in self.addressTable.keys():
+			#print name, ",", self.addressTable[name].address
 
 	def deleteRecord(self, row):
 		del(self[row])
@@ -1554,11 +1553,12 @@ class PyMPG:
 
     def updateBool(self, button, window, col):
         self.makeDirty()
-        self.database[window.row][col] = button.get_active()
+        self.database[window.row][storedFields[col]] = button.get_active()
         self.newstatus("Set %s to %s on record %d" % 
                        (storedFieldLabels[col],
                         "Yes" if button.get_active() else "No", window.row)
                        )
+        self.updateList()
         self.window.queue_draw()
         return
 
