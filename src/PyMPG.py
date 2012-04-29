@@ -441,13 +441,15 @@ class DataBase :
 		"""Create a map from station names to addresses"""
 		self.addressTable = dict()
 		for record in self.recordTable:
-			if (record.station not in self.addressTable.keys()):
+			if (record.station == ""):
+				continue
+			elif (record.station not in self.addressTable.keys()):
 				# Not sure what to do yet, almost calls for a pop-up display
 				#self.addressTable[record.station] = None
 				self.addressTable[record.station] = Address(record.address, record.city, record.state, record.zip)
 			else:
+				# TODO replace this copying with an Address class method
 				for addressField in ['address', 'city', 'state', 'zip']:
-					# TODO replace record.fields.keys() and record.fields[]
 					if ((self.addressTable[record.station].__dict__[addressField] == "") and (addressField in record)):
 						#record.__dict__[addressField]
 					#print record.__dict__.keys()
@@ -572,8 +574,41 @@ class EditWindow:
         self.database = database
         self.row = row
 
+    def show_error (self, string):
+        md = gtk.MessageDialog(None,
+            gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_ERROR,
+            gtk.BUTTONS_CLOSE, string)
+        md.run()
+        md.destroy()
+
+    def addToRow(self, widget, offset):
+        newrow = self.row + offset
+	print "addToRow", self.row, newrow
+        if ((newrow >= 0) and (newrow < len(self.database))):
+	   print "OK", newrow
+           self.row = newrow
+
+	self.prev_button.set_sensitive((self.row - 1) >= 0)
+	self.next_button.set_sensitive((self.row + 1) < len(self.database))
+        
+	self.update()
+        
+    def update(self):
+        
+	for key, entry in self.entryMap.items():
+		if (key == 'fill'):
+                	entry.set_active(self.database[self.row].fill)
+		else:
+			entry.set_text(self.database.getText(self.row, key))
+
+        self.setWindowTitle()
+
+        return
+
+
     def updateField(self, entry, editwindow, col):
-        self.interface.updateField(entry, editwindow, col)
+	if (self.row != None):
+        	self.interface.updateField(entry, editwindow, col)
         #print "DEBUG: Update field"
 	if (col == storedFields.station):
             #print "DEBUG: Update station"
@@ -587,6 +622,38 @@ class EditWindow:
                         self.entryMap[addressField].set_text(text)
 		    	self.database[self.row][addressField] = text       
 
+    def saveNewRecord(self, widget):
+        newrownum = len(self.database.recordTable)
+        newrow = dict()
+
+        try:
+            for x in range(0, len(storedFields)):
+                if (storedFields[x] == 'fill'):
+                    newrow[storedFields[x]] = "Yes" if self.entryMap[storedFields[x]].get_active() else "No"
+                else:
+                    if (storedFields[x] in ['odo', 'gals', 'dpg'] 
+                        and self.entryMap[storedFields[x]].get_text() == ""):
+                        raise NameError('Missing required field')
+                    newrow[storedFields[x]] = self.entryMap[storedFields[x]].get_text()
+                    
+            # want to do a check here for the date being wrong
+            # records are sorted by odometer, need to make sure this record isn't before the previous or after the next 
+        except ValueError:
+            self.show_error('Invalid format, try again.')
+        except NameError:
+            self.show_error('You left a required field blank.')
+        else:
+
+            # If entries OK
+            self.interface.makeDirty()
+            self.database.addNewRecord(FuelRecord(newrow))
+            self.interface.updateList()
+            self.interface.updatePlot()
+            self.interface.newstatus("New record created.")
+            self.editwindow.destroy()
+
+        return
+
     def open(self):
         self.editwindow = gtk.Window()
 
@@ -598,16 +665,23 @@ class EditWindow:
 
             if (storedFields[x] == 'fill'):
                 button = gtk.CheckButton(storedFieldLabels[x])
-                button.set_active(self.database[self.row].fill)
+		if (self.row == None):
+			button.set_active(False)
+		else:
+                	button.set_active(self.database[self.row].fill)
                 button.connect("clicked", self.interface.updateBool, self, x)
                 self.table.attach(button, 1, 2, x, x + 1)
                 self.entryMap[storedFields[x]] = button
             else:
                 entry = gtk.Entry()
-                entry.set_text(self.database.getText(self.row, storedFields[x]))
+                if (self.row == None):
+			if (storedFields[x] == 'date'):
+				entry.set_text(datetime.date.today().strftime(dateFmtStr))
+		else:
+                	entry.set_text(self.database.getText(self.row, storedFields[x]))
                 entry.connect("activate", self.updateField, self, x)
                 entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
-		if (storedFields[x] not in ['odo', 'date', 'gallons', 'dpg']):
+		if (storedFields[x] not in ['gal', 'odo', 'date', 'gallons', 'dpg']):
 			# Auto-completion
 			completion = gtk.EntryCompletion()
 			liststore = gtk.ListStore(str)
@@ -623,28 +697,50 @@ class EditWindow:
                 self.table.attach(entry, 1, 2, x, x + 1)
                 self.entryMap[storedFields[x]] = entry
 
-        self.editwindow.add(self.table)
+        bbox = gtk.HButtonBox()
+	if (self.row == None):
+        	save_button = gtk.Button(label="Save", stock=gtk.STOCK_OK)
+        	save_button.connect("activate", self.saveNewRecord)
+        	save_button.connect("clicked", self.saveNewRecord)
+        	bbox.add(save_button)
+        	canc_button = gtk.Button(stock=gtk.STOCK_CANCEL)
+        	canc_button.connect("activate", self.close)
+        	canc_button.connect("clicked", self.close) # TODO FIXME this doesn't work: TypeError: destroy() takes no arguments (1 given)
+        	bbox.add(canc_button)
+	else:
+		self.prev_button = gtk.Button(label="Previous", stock=gtk.STOCK_GO_BACK)
+		self.prev_button.connect("activate", self.addToRow, -1)
+		self.prev_button.connect("clicked", self.addToRow, -1)
+		bbox.add(self.prev_button)
+		self.next_button = gtk.Button(label="Next", stock=gtk.STOCK_GO_FORWARD)
+		self.next_button.connect("activate", self.addToRow, 1)
+		self.next_button.connect("clicked", self.addToRow, 1)
+		bbox.add(self.next_button)
+        bbox.set_spacing(20)
+       	bbox.set_layout(gtk.BUTTONBOX_SPREAD)
+
+	vbox = gtk.VBox(False, 0)
+	vbox.pack_start(self.table, False, False, 0)
+	vbox.pack_end(bbox, False, False, 0)
+        self.editwindow.add(vbox)
         
         self.setWindowTitle()
         
         self.editwindow.show_all()
 
     def setWindowTitle(self):
-        self.editwindow.set_title("Edit Record %d" % (self.row + 1))
-        return
-
-    def update(self):
-        
-        # all we have to do is update the row and the window title if the record moved
-        #self.row = self.database.getRowOf(self.key)
-        self.setWindowTitle()
-
+	if (self.row == None):
+        	self.editwindow.set_title("New Record")
+	else: 
+        	self.editwindow.set_title("Edit Record %d" % (self.row + 1))
         return
 
     def editWindowEntryFocusOut(self, widget, event, editwindow, col):
         # this basically throws out the 'event'
         return self.updateField(widget, editwindow, col)
 
+    def close(self, widget):
+        self.editwindow.destroy()
 
 
 def recordCompare(a, b):
@@ -1391,11 +1487,16 @@ class PyMPG:
         return
 
     def newrecord(self, widget):
+	# TODO this might become and edit window without a 'row' 
         # Open up a single 'new record' window, if it doesn't already exist
         # Have 'Save' and 'Cancel' buttons at the bottom
         # Don't modify self until 'Save'
+        editwindow = EditWindow(self, self.database, None)
+        editwindow.open()
+	return
 
-        newrow = ["", datetime.date.today().strftime(dateFmtStr), "", "", "", "", True, ""]
+	# TODO this should be replaced with a class ! 
+        newrow = ["", datetime.date.today().strftime(dateFmtStr), "", "", "", "", "", "", "", True, ""]
         
         self.editwindow = gtk.Window()
         self.editwindow.set_title("Create New Record")
@@ -1440,6 +1541,7 @@ class PyMPG:
 
         return
 
+    # TODO deprecate!
     def saveNewRecord(self, widget):
         newrownum = len(self.database.recordTable)
         newrow = dict()
@@ -1486,7 +1588,7 @@ class PyMPG:
         return
 
     def closeEditWindow(self, widget):
-        self.editwindow.destroy
+        self.editwindow.destroy()
         return
 
     def deleteRecord(self, row):
