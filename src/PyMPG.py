@@ -583,9 +583,9 @@ class EditWindow:
 
     def addToRow(self, widget, offset):
         newrow = self.row + offset
-	print "addToRow", self.row, newrow
+	#print "addToRow", self.row, newrow
         if ((newrow >= 0) and (newrow < len(self.database))):
-	   print "OK", newrow
+	   #print "OK", newrow
            self.row = newrow
 
 	self.prev_button.set_sensitive((self.row - 1) >= 0)
@@ -1303,7 +1303,7 @@ class PyMPG:
         return self.updatePreference(widget, field)
 
     def menuEditDel(self, widget):
-        # ask user if they're sure when I learn how
+        # TODO ask user if they're sure when I learn how
 
         row = self.get_current_row()
         self.deleteRecord(row)
@@ -1487,95 +1487,9 @@ class PyMPG:
         return
 
     def newrecord(self, widget):
-	# TODO this might become and edit window without a 'row' 
-        # Open up a single 'new record' window, if it doesn't already exist
-        # Have 'Save' and 'Cancel' buttons at the bottom
-        # Don't modify self until 'Save'
         editwindow = EditWindow(self, self.database, None)
         editwindow.open()
 	return
-
-	# TODO this should be replaced with a class ! 
-        newrow = ["", datetime.date.today().strftime(dateFmtStr), "", "", "", "", "", "", "", True, ""]
-        
-        self.editwindow = gtk.Window()
-        self.editwindow.set_title("Create New Record")
-
-        table = gtk.Table(len(storedFields) + 1, 2, False)
-        self.newRecordEntries = []
-        for x in range(0, len(storedFields)):
-            label = gtk.Label(storedFieldLabels[x])
-            table.attach(label, 0, 1, x, x + 1)
-
-            if (storedFields[x] == 'fill'):
-                button = gtk.CheckButton(storedFieldLabels[x])
-                button.set_active(True)
-                #button.connect("clicked", self.updateBool, newrownum, x)
-                table.attach(button, 1, 2, x, x + 1)
-                self.newRecordEntries.append(button)
-            else:
-                entry = gtk.Entry()
-                entry.set_text(newrow[x])
-                #entry.connect("activate", self.updateField, newrownum, x)
-                table.attach(entry, 1, 2, x, x + 1)
-                self.newRecordEntries.append(entry)
-
-        bbox = gtk.HButtonBox()
-        save_button = gtk.Button(label="Save", stock=gtk.STOCK_OK)
-        save_button.connect("activate", self.saveNewRecord)
-        save_button.connect("clicked", self.saveNewRecord)
-        bbox.add(save_button)
-        canc_button = gtk.Button(stock=gtk.STOCK_CANCEL)
-        canc_button.connect("activate", self.closeEditWindow)
-        canc_button.connect("clicked", self.closeEditWindow) # TODO FIXME this doesn't work: TypeError: destroy() takes no arguments (1 given)
-        bbox.add(canc_button)
-        bbox.set_spacing(20)
-        bbox.set_layout(gtk.BUTTONBOX_SPREAD)
-
-        vbox = gtk.VBox(False, 0)
-        vbox.pack_start(table, False, False, 0)
-        vbox.pack_end(bbox, False, False, 0)
-
-        self.editwindow.add(vbox)
-        self.editwindow.show_all()
-
-        return
-
-    # TODO deprecate!
-    def saveNewRecord(self, widget):
-        newrownum = len(self.database.recordTable)
-        newrow = dict()
-
-        try:
-            for x in range(0, len(storedFields)):
-                if (storedFields[x] == 'fill'):
-                    newrow[storedFields[x]] = "Yes" if self.newRecordEntries[x].get_active() else "No"
-                else:
-                    if (storedFields[x] in ['odo', 'gals', 'dpg'] 
-                        and self.newRecordEntries[x].get_text() == ""):
-                        raise NameError('Missing required field')
-                    newrow[storedFields[x]] = self.newRecordEntries[x].get_text()
-			#FuelRecord.formatText(
-                        #storedFields[x],
-                        #self.newRecordEntries[x].get_text())
-                    
-            # want to do a check here for the date being wrong
-            # records are sorted by odometer, need to make sure this record isn't before the previous or after the next 
-        except ValueError:
-            self.show_error('Invalid format, try again.')
-        except NameError:
-            self.show_error('You left a required field blank.')
-        else:
-
-            # If entries OK
-            self.makeDirty()
-            self.database.addNewRecord(FuelRecord(newrow))
-            self.updateList()
-            self.updatePlot()
-            self.newstatus("New record created.")
-            self.editwindow.destroy()
-
-        return
     
     def updateList(self):
         self.recordList = gtk.ListStore(object)
@@ -1585,10 +1499,6 @@ class PyMPG:
             self.recordList.append([i])
         self.treeview.set_model(self.recordList)
         
-        return
-
-    def closeEditWindow(self, widget):
-        self.editwindow.destroy()
         return
 
     def deleteRecord(self, row):
@@ -1679,8 +1589,9 @@ class PyMPG:
                     if (newrow != editwindow.row):
                         editwindow.row = newrow
                         self.updateList()
-                        editwindow.update()
+                        editwindow.update() # to update the window title
                         self.newstatus("Warning: You have changed the position of the record to %d" % (newrow+1))
+                self.treeview.set_cursor(len(self.database) - editwindow.row - 1)
     
                 # redraw main window here
                 self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (editwindow.row+1)))
