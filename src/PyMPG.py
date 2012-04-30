@@ -16,10 +16,11 @@ import subprocess
 
 # Global settings 
 progname = "PyMPG"
-progver = "1.1b"
+progver = "2.2"
 progcopy = "Copyright Ryan Helinski"
 progcomm = "A simple tool for keeping track of gas mileage implemented in Python using PyGTK."
 progurl = "http://pgmdb.sf.net/"
+pmxversion = '0.2'
 
 invalidStr = "--"
 dateFmtStr = "%Y/%m/%d"
@@ -249,7 +250,7 @@ class DataBase :
 			import xml.etree.ElementTree as etree
 			mytree = etree.parse(filename)
 			myroot = mytree.getroot()
-			
+
 			for child in myroot[0]:
 				if (child.tag == 'user'):
 					for pref in child:
@@ -259,8 +260,13 @@ class DataBase :
 						VehProperties[pref.attrib['name']] = pref.attrib['value']
 				if (child.tag == 'fuel'):
 					for record in child:
-						 self.recordTable.append(FuelRecord(record.attrib))
+						# For backwards-compatibility 
+						if (myroot[0].attrib['version'] == '0.1' and 'location' in record.attrib):
+							record.attrib['address'] = record.attrib['location']
+							del record.attrib['location']
+						self.recordTable.append(FuelRecord(record.attrib))
 
+			
 		else: 
 			raise NameError("Unknown file type")
 
@@ -268,7 +274,53 @@ class DataBase :
 		self.filename = filename # Save file name for later
 
 		self.sortRecords()
-		
+
+		return
+
+	def saveFile(self):
+		if (self.filename.lower().endswith('csv')):
+			# Save records back to a CSV file
+			fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+
+			for pref in UserPreferences.keys():
+				fileWriter.writerow(['pref', pref, UserPreferences[pref]])
+			
+			for prop in VehProperties.keys():
+				fileWriter.writerow(['veh', prop, VehProperties[prop]])
+
+			i = 0
+			for i in range(0, len(self.recordTable)):
+				fileWriter.writerow(self[i].tolist())
+
+		elif (self.filename.lower().endswith('xml')):
+			# Create an XML
+			import xml.etree.ElementTree as etree
+
+			myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
+			mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': pmxversion, 'generator': progname})
+
+			myuser = etree.SubElement(mypmx, 'user')
+			for pref in UserPreferences.keys():
+				etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
+
+			myveh = etree.SubElement(mypmx, 'vehicle')
+			for prop in VehProperties.keys():
+				etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
+
+			myfuel = etree.SubElement(mypmx, 'fuel')
+
+			i = 0
+			for i in range(0, len(self.recordTable)):
+				etree.SubElement(myfuel, 'record', attrib=self[i].todict())
+
+			xmlfile = open(self.filename, 'w')
+			xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
+			xmlfile.write(etree.tostring(myxml))
+			xmlfile.flush()
+			xmlfile.close()
+
+		else:
+			raise NameError('Unknown file type')
 
 		return
 
@@ -378,53 +430,6 @@ class DataBase :
 			
 		return False
 	
-	def saveFile(self):
-		if (self.filename.lower().endswith('csv')):
-			# Save records back to a CSV file
-			fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
-
-			for pref in UserPreferences.keys():
-				fileWriter.writerow(['pref', pref, UserPreferences[pref]])
-			
-			for prop in VehProperties.keys():
-				fileWriter.writerow(['veh', prop, VehProperties[prop]])
-
-			i = 0
-			for i in range(0, len(self.recordTable)):
-				fileWriter.writerow(self[i].tolist())
-
-		elif (self.filename.lower().endswith('xml')):
-			# Create an XML
-			import xml.etree.ElementTree as etree
-
-			myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
-			mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': '0.1', 'generator': sys.argv[0]})
-
-			myuser = etree.SubElement(mypmx, 'user')
-			for pref in UserPreferences.keys():
-				etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
-
-			myveh = etree.SubElement(mypmx, 'vehicle')
-			for prop in VehProperties.keys():
-				etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
-
-			myfuel = etree.SubElement(mypmx, 'fuel')
-
-			i = 0
-			for i in range(0, len(self.recordTable)):
-				etree.SubElement(myfuel, 'record', attrib=self[i].todict())
-
-			xmlfile = open(self.filename, 'w')
-			xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
-			xmlfile.write(etree.tostring(myxml))
-			xmlfile.flush()
-			xmlfile.close()
-
-		else:
-			raise NameError('Unknown file type')
-
-		return
-
 	def addNewRecord(self, record=FuelRecord):
 
 		#record.append(len(self.recordTable))
@@ -689,7 +694,7 @@ class EditWindow:
 			entry.set_completion(completion)
 			completion.set_model(liststore)
 			completion.set_text_column(0)
-			# TODO Might be able to use the interface.recordList ListStore
+
 			column = self.database.getCol(storedFields[x])
 			column = set(column)
 			for item in column:
@@ -964,6 +969,7 @@ class PyMPG:
 
         # create the TreeView
         self.treeview = gtk.TreeView()
+	# TODO add ability to sort by headers
         self.treeview.set_headers_clickable(True)
         # rules-hint
         self.treeview.set_rules_hint(True);
@@ -980,6 +986,7 @@ class PyMPG:
                 cell.set_property('xalign', 1.0)
             self.tvcolumn[n] = gtk.TreeViewColumn(columnNames[n], cell)
             self.tvcolumn[n].set_cell_data_func(cell, self.format_comment, fullFields[n])
+            self.tvcolumn[n].set_resizable(True)
             self.treeview.append_column(self.tvcolumn[n])
 
         self.treeview.connect('row-activated', self.editrecord)
