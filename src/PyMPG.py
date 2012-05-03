@@ -626,7 +626,8 @@ class EditWindow:
                     if (editwindow.entryMap[addressField].get_text() == ""):
                         text = self.database.addressTable[entry.get_text()].__dict__[addressField]
                         self.entryMap[addressField].set_text(text)
-		    	self.database[self.row][addressField] = text       
+			if (self.row != None):
+		    		self.database[self.row][addressField] = text       
 
     def saveNewRecord(self, widget):
         newrownum = len(self.database.recordTable)
@@ -1374,7 +1375,9 @@ class PyMPG:
             }
 
         commands = [
-            "set term %s" % UserPreferences['GnuPlotTerm'], # having trouble with default 'aqua' on Mac OSX
+	    # having trouble with default 'aqua' on Mac OSX
+	    # use 'wxt' or 'windows' for Windows
+            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""), 
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             #"set xtics rotate by 90",
