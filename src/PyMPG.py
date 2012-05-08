@@ -92,14 +92,12 @@ wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 
 
 sortField = storedFields.odo
 
+from PrefManager import * 
+pm = PrefManager()
 
-# defaults
 # TODO these should be part of the database, but they are not
-UserPreferences = dict({'GnuPlotPath' : 'gnuplot', 'GnuPlotTerm' : 'x11'}) 
 VehProperties = dict()
 vehPrefFields = Enum("Year","Make","Model","TankSize","ServiceOffset","ServiceInterval","Owner")
-
-
 
 class FuelRecord():
 
