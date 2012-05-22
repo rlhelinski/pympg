@@ -70,6 +70,9 @@ class PrefManager:
 	def __len__(self):
 		return len(self.UserPreferences)
 
+	def __contains__(self, field):
+		return field in self.UserPreferences
+
 	def keys(self):
 		return self.UserPreferences.keys()
 

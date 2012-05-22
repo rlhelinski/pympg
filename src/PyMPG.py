@@ -1372,8 +1372,7 @@ class PyMPG:
         commands = [
 	    # having trouble with default 'aqua' on Mac OSX
 	    # use 'wxt' or 'windows' for Windows
-	    # TODO find out how to implement a method for the "in" keyword 
-            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences.keys()) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""), 
+            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""), 
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             #"set xtics rotate by 90",
