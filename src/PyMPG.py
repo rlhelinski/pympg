@@ -93,7 +93,7 @@ wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 
 sortField = storedFields.odo
 
 from PrefManager import * 
-pm = PrefManager()
+UserPreferences = PrefManager()
 
 # TODO these should be part of the database, but they are not
 VehProperties = dict()
@@ -280,9 +280,6 @@ class DataBase :
 			# Save records back to a CSV file
 			fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
 
-			for pref in UserPreferences.keys():
-				fileWriter.writerow(['pref', pref, UserPreferences[pref]])
-			
 			for prop in VehProperties.keys():
 				fileWriter.writerow(['veh', prop, VehProperties[prop]])
 
@@ -1375,7 +1372,8 @@ class PyMPG:
         commands = [
 	    # having trouble with default 'aqua' on Mac OSX
 	    # use 'wxt' or 'windows' for Windows
-            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""), 
+	    # TODO find out how to implement a method for the "in" keyword 
+            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences.keys()) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""), 
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             #"set xtics rotate by 90",

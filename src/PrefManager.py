@@ -4,6 +4,24 @@
 import os
 import xml.etree.ElementTree as etree
 
+# http://stackoverflow.com/questions/749796/pretty-printing-xml-in-python/4590052#4590052
+def xml_indent(elem, level=0):
+    """Add white space to XML DOM so that when it is converted to a string, it is pretty."""
+
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            xml_indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
 class PrefManager:
 	UserPreferences = dict({
 		'GnuPlotPath' : 'gnuplot', 
@@ -12,7 +30,7 @@ class PrefManager:
 		}) 
 
 	def __init__(self):
-		self.prefFile = os.path.expanduser('~/.pympg/pympg.xml')
+		self.prefFile = os.path.expanduser(os.path.join('~', '.pympg', 'pympg.xml'))
 
 		if (os.path.isfile(self.prefFile)):
 			self.load()
@@ -25,7 +43,10 @@ class PrefManager:
 
 		for child in myroot[0]:
 			if (child.tag == 'pref'):
+				print "User Preferences: " + child.attrib['name'] + " = " + pref.attrib['value']
 				self.UserPreferences[child.attrib['name']] = pref.attrib['value']
+
+		print "Loaded preferences from '%s'" % self.prefFile
 
 	def save(self):
 		myxml = etree.Element('xml', attrib={'version':'1.0', 'encoding':'UTF-8'})
@@ -36,7 +57,20 @@ class PrefManager:
 			os.mkdir(os.path.dirname(self.prefFile))
 		xmlfile = open(self.prefFile, 'w')
 		#xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
-		xmlfile.write(etree.tostring(myxml))
+		xmlfile.write(etree.tostring(xml_index(myxml)))
 		xmlfile.flush()
 		xmlfile.close()
+	
+	def __setitem__(self, key, value):
+		self.UserPreferences[key] = value
+	
+	def __getitem__(self, key):
+		return self.UserPreferences[key]
+
+	def __len__(self):
+		return len(self.UserPreferences)
+
+	def keys(self):
+		return self.UserPreferences.keys()
+
 	
