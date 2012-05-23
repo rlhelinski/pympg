@@ -236,7 +236,8 @@ class DataBase :
 			for row in fileReader:
 				# check first if this is a preference record
 				if (row[0] == 'pref'):
-					UserPreferences[row[1]] = row[2]
+					print "WARNING: Ignoring user preference from vehicle data file"
+					#UserPreferences[row[1]] = row[2]
 					
 				elif (row[0] == 'veh'):
 					VehProperties[row[1]] = row[2] 
@@ -251,8 +252,9 @@ class DataBase :
 
 			for child in myroot[0]:
 				if (child.tag == 'user'):
-					for pref in child:
-						UserPreferences[pref.attrib['name']] = pref.attrib['value']
+					print "WARNING: Ignoring user preference from vehicle data file"
+					#for pref in child:
+						#UserPreferences[pref.attrib['name']] = pref.attrib['value']
 				if (child.tag == 'vehicle'):
 					for pref in child:
 						VehProperties[pref.attrib['name']] = pref.attrib['value']

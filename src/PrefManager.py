@@ -22,6 +22,8 @@ def xml_indent(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
+    return elem
+
 class PrefManager:
 	UserPreferences = dict({
 		'GnuPlotPath' : 'gnuplot', 
@@ -41,10 +43,10 @@ class PrefManager:
 		mytree = etree.parse(self.prefFile)
 		myroot = mytree.getroot()
 
-		for child in myroot[0]:
+		for child in myroot:
 			if (child.tag == 'pref'):
-				print "User Preferences: " + child.attrib['name'] + " = " + pref.attrib['value']
-				self.UserPreferences[child.attrib['name']] = pref.attrib['value']
+				#print "User Preferences: " + child.attrib['name'] + " = " + child.attrib['value']
+				self.UserPreferences[child.attrib['name']] = child.attrib['value']
 
 		print "Loaded preferences from '%s'" % self.prefFile
 
@@ -57,12 +59,15 @@ class PrefManager:
 			os.mkdir(os.path.dirname(self.prefFile))
 		xmlfile = open(self.prefFile, 'w')
 		#xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
-		xmlfile.write(etree.tostring(xml_index(myxml)))
+		xmlfile.write(etree.tostring(myxml))
 		xmlfile.flush()
 		xmlfile.close()
+		print "Preferences saved to '%s'" % self.prefFile
 	
 	def __setitem__(self, key, value):
-		self.UserPreferences[key] = value
+		if (self.UserPreferences[key] != value):
+			self.UserPreferences[key] = value
+			self.save()
 	
 	def __getitem__(self, key):
 		return self.UserPreferences[key]
