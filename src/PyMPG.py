@@ -685,7 +685,7 @@ class EditWindow:
                 	entry.set_text(self.database.getText(self.row, storedFields[x]))
                 entry.connect("activate", self.updateField, self, x)
                 entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
-		if (storedFields[x] not in ['gal', 'odo', 'date', 'gallons', 'dpg']):
+		if (storedFields[x] not in ['gals', 'odo', 'date', 'dpg']):
 			# Auto-completion
 			completion = gtk.EntryCompletion()
 			liststore = gtk.ListStore(str)
