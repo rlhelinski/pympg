@@ -608,6 +608,10 @@ class EditWindow:
 
         return
 
+    def updateBool(self, entry, window, col):
+        if (self.row != None):
+            self.interface.updateField(entry, window, col)
+        
 
     def updateField(self, entry, editwindow, col):
 	if (self.row != None):
@@ -673,7 +677,7 @@ class EditWindow:
 			button.set_active(False)
 		else:
                 	button.set_active(self.database[self.row].fill)
-                button.connect("clicked", self.interface.updateBool, self, x)
+                button.connect("clicked", self.updateBool, self, x)
                 self.table.attach(button, 1, 2, x, x + 1)
                 self.entryMap[storedFields[x]] = button
             else:
@@ -1573,7 +1577,7 @@ class PyMPG:
 
     def updateBool(self, button, window, col):
         #print button.get_active(), self.database[window.row][storedFields[col]]
-        if (button.get_active() != (self.database[window.row][storedFields[col]] == "Yes")):
+        if (window.row==None) or (button.get_active() != (self.database[window.row][storedFields[col]] == "Yes")):
         	self.makeDirty()
         	self.database[window.row][storedFields[col]] = button.get_active()
         	self.newstatus("Set %s to %s on record %d" % 
