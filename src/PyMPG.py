@@ -126,6 +126,10 @@ class FuelRecord():
 	def __getitem__(self, key): # object[name], format a string 
 		return self.getText(key)
 
+	def __cmp__(a, b):
+	    return cmp(a.odo, b.odo)
+
+
 	def fromlist(self, row):
 		if (len(row) != len(storedFields)):
 			raise NameError('Wrong number of fields in CSV file!')
@@ -200,7 +204,7 @@ class Address:
 		#self.__getattr__(name)
 
 # This class opens/saves files, and manages the data in memory
-class DataBase :
+class DataBase:
 	# variables here are static 
 	dirty_bit = False		# true if the data from the file has been modified
 	filename = ""		 # name of the file that's open
@@ -209,7 +213,8 @@ class DataBase :
 	
 	def __getitem__(self, index):
 		"""
-		This prevents you from having to use the recordTable directly. 
+		This enables you to get a record from the database without 
+		using the recordTable directly. 
 		i.e., myDB.recordTable[index] -> myDB[index]
 		"""
 		return self.recordTable[index]
@@ -322,12 +327,20 @@ class DataBase :
 		return
 
 	def sumWhileFalse(self, row, sumfield, checkfield):
-		lastTrue = 1 # assume the next oldest field is true
+		# Start by adding this row's value
 		total = float( self.getText(row, sumfield) )
+		# Start with the previous row
+		lastTrue = row - 1
 
-		while (self.getText(row - lastTrue, checkfield) != "Yes"):
-			total = total + float( self.getText(row - lastTrue, sumfield) ) 
-			lastTrue = lastTrue + 1
+		while (lastTrue > 1 and self.getText(lastTrue, checkfield) != "Yes"):
+
+			try: 
+				total = total + float( self.getText(lastTrue, sumfield) ) 
+			except ValueError as e: 
+				break
+			#if sumfield == 'gals':
+				#print row, lastTrue, checkfield, sumfield, self.getText(row - lastTrue, checkfield), self.getText(row - lastTrue, sumfield), total
+			lastTrue -= 1 # keep going back until we find one that is true 
 		
 		#print [self.getText(row, "odo"), row, lastTrue, sumfield, checkfield, total]
 
@@ -377,6 +390,8 @@ class DataBase :
 				totalFuel = self.sumWhileFalse(row, "gals", "fill")[1]
 
 				return "%0.1f" % (totalMiles / totalFuel)
+				# DEBUG
+				#return "%d %0.1f/%0.1f=%0.1f" % (row, totalMiles, totalFuel, totalMiles/totalFuel)
 			
 		elif (field == "dpd"):
 			if (row == 0):
@@ -436,8 +451,7 @@ class DataBase :
 		return
 
 	def sortRecords(self):
-		self.recordTable.sort(recordCompare)
-		return
+		return self.recordTable.sort(cmp=FuelRecord.__cmp__)
 
 	def updateAddressBook(self):
 		"""Create a map from station names to addresses"""
@@ -750,9 +764,6 @@ class EditWindow:
     def close(self, widget):
         self.editwindow.destroy()
 
-
-def recordCompare(a, b):
-    return cmp(a.odo, b.odo)
 
 # This class serves as an interface between other classes and the GTK user interface
 class PyMPG:
@@ -1588,32 +1599,41 @@ class PyMPG:
         	self.window.queue_draw()
 
     def updateField(self, entry, editwindow, col):
-	# If there was a change:
-        if (entry.get_text() != self.database.getText(editwindow.row, storedFields[col])):
-            self.makeDirty()
-            # need to catch exceptions here and throw up errors
-            try:
-                self.database[editwindow.row].setText(storedFields[col], entry.get_text())
-                
-                if (col == sortField):
-                    key = self.database[editwindow.row][storedFields[sortField]]
-                    self.database.sortRecords()
-                    newrow = self.database.getRowOf(key)
-                    if (newrow != editwindow.row):
-                        editwindow.row = newrow
-                        self.updateList()
-                        editwindow.update() # to update the window title
-                        self.newstatus("Warning: You have changed the position of the record to %d" % (newrow+1))
-		self.selectRow(editwindow.row)
-    
-                # redraw main window here
-                self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (editwindow.row+1)))
-                self.window.queue_draw()
-                self.updatePlot()
-                
-            except ValueError:
-                print 'Caught ValueError'
-                self.show_error('Invalid format, try again.')
+	# Check for change
+	if type(entry) == type(gtk.CheckButton()):
+		if entry.get_active() != self.database.getText(editwindow.row, storedFields[col]) :
+		    self.makeDirty()
+		    self.database[editwindow.row].setText(storedFields[col], "Yes" if entry.get_active() else "No")
+
+	else:
+		if entry.get_text() != self.database.getText(editwindow.row, storedFields[col]) :
+		    self.makeDirty()
+
+		    # need to catch exceptions here and throw up errors
+		    try:
+			self.database[editwindow.row].setText(storedFields[col], entry.get_text())
+			
+			if (col == sortField):
+			    key = self.database[editwindow.row][storedFields[sortField]]
+			    self.database.sortRecords()
+			    newrow = self.database.getRowOf(key)
+			    if (newrow != editwindow.row):
+				editwindow.row = newrow
+				self.updateList()
+				editwindow.update() # to update the edit window title
+				self.newstatus("Warning: You have changed the position of the record to %d" % (newrow+1))
+			
+		    except ValueError:
+			print 'Caught ValueError'
+			self.show_error('Invalid format, try again.')
+			return
+
+	self.selectRow(editwindow.row)
+
+	# redraw main window here
+	self.newstatus("Updated %s on record %d" % (storedFieldLabels[col], (editwindow.row+1)))
+	self.window.queue_draw()
+	self.updatePlot()
 
         return
 
