@@ -144,6 +144,8 @@ class FuelRecord():
 			except KeyError:
 				# Could use a getDefault() method
 				self.fields[field] = (False if (field == 'fill') else "")
+			except Exception as e:
+				raise Exception('%s at odo %s' % (str(e), mydict['odo']))
 
 	def tolist(self):
                 j = 0
@@ -181,16 +183,19 @@ class FuelRecord():
 
 	@staticmethod
 	def formatText(field, text):
-		if (field == "odo"):
-			retval = int(text)
-		elif (field == "date"):
-			retval = datetime.datetime.strptime(text, dateFmtStr)
-		elif (field == "gals" or field == "dpg"):
-			retval = round(float(text), numSigFigs)
-		elif (field == "fill"):
-			retval = (text.lower() == "yes")
-		else:	# return value as-is
-			retval = text.strip()
+		try:
+			if (field == "odo"):
+				retval = int(text)
+			elif (field == "date"):
+				retval = datetime.datetime.strptime(text, dateFmtStr)
+			elif (field == "gals" or field == "dpg"):
+				retval = round(float(text), numSigFigs)
+			elif (field == "fill"):
+				retval = (text.lower() == "yes")
+			else:	# return value as-is
+				retval = text.strip()
+		except Exception as e:
+			raise Exception('%s in field "%s" with value "%s"' % (str(e), field, text))
 
 		return retval
 
