@@ -6,13 +6,13 @@
 
 
 import sys
-import gtk
-import glib
 import csv
 import time
 import datetime
 #import traceback
 import subprocess
+import gi; gi.require_version('Gtk', '3.0')
+from gi.repository import GLib, Gtk
 
 # Global settings 
 progname = "PyMPG"
