@@ -14,7 +14,7 @@ import subprocess
 import gi; gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gtk
 
-# Global settings 
+# Global settings
 progname = "PyMPG"
 progver = "2.2"
 progcopy = "Copyright Ryan Helinski"
@@ -29,10 +29,10 @@ daysPerYear = 365.25
 numSigFigs = 3
 
 pumpxpm = sys.path[0] + "/pump.png"
-try: 
-    pumppb = gtk.gdk.pixbuf_new_from_file(pumpxpm) 
+try:
+    pumppb = gtk.gdk.pixbuf_new_from_file(pumpxpm)
 except glib.GError as error:
-	print error
+    print(error)
 
 # http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python/1695250#1695250
 class Enum():
@@ -52,7 +52,7 @@ class Enum():
     def value(self, name):
         return self.enumd[name]
     def pairs(self):
-	return self.enumd.items()
+        return self.enumd.items()
 
 # http://stackoverflow.com/questions/749796/pretty-printing-xml-in-python/4590052#4590052
 def xml_indent(elem, level=0):
@@ -73,10 +73,10 @@ def xml_indent(elem, level=0):
             elem.tail = i
 
 def mktimestamp(timeobj):
-	return int(time.mktime(timeobj.timetuple()))
+    return int(time.mktime(timeobj.timetuple()))
 
 def fmttimestamp(timestamp):
-	return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
+    return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
 
 # TODO most of these should move to the record class
 storedFields = Enum('odo', 'date', 'gals', 'dpg', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment')
@@ -92,7 +92,8 @@ wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 
 
 sortField = storedFields.odo
 
-from PrefManager import * 
+# TODO replace with configparser https://docs.python.org/2/library/configparser.html
+from PrefManager import *
 UserPreferences = PrefManager()
 
 # TODO these should be part of the database, but they are not
@@ -101,495 +102,493 @@ vehPrefFields = Enum("Year","Make","Model","TankSize","ServiceOffset","ServiceIn
 
 class FuelRecord():
 
-	def __init__(self, source=None):
-		self.fields = dict()
+    def __init__(self, source=None):
+        self.fields = dict()
 
-		if (type(source) == None):
-			None
-		elif (type(source) == list):
-			self.fromlist(source)
-		elif (type(source) == dict):
-			self.fromdict(source)
+        if (type(source) == None):
+            None
+        elif (type(source) == list):
+            self.fromlist(source)
+        elif (type(source) == dict):
+            self.fromdict(source)
 
-	def __contains__(self, name):
-		return name in self.fields.keys()
+    def __contains__(self, name):
+        return name in self.fields.keys()
 
-	def __getattr__(self, name): # object.name, return raw data
-		return self.fields[name]
+    def __getattr__(self, name): # object.name, return raw data
+        return self.fields[name]
 
-	def __setitem__(self, name, value):
-		self.fields[name] = value
+    def __setitem__(self, name, value):
+        self.fields[name] = value
 
-	def __repr__(self): # string representation
-		return str(self.fields)
+    def __repr__(self): # string representation
+        return str(self.fields)
 
-	def __getitem__(self, key): # object[name], format a string 
-		return self.getText(key)
+    def __getitem__(self, key): # object[name], format a string
+        return self.getText(key)
 
-	def __cmp__(a, b):
-	    return cmp(a.odo, b.odo)
+    def __cmp__(a, b):
+        return cmp(a.odo, b.odo)
 
+    def fromlist(self, row):
+        if (len(row) != len(storedFields)):
+            raise NameError('Wrong number of fields in CSV file!')
 
-	def fromlist(self, row):
-		if (len(row) != len(storedFields)):
-			raise NameError('Wrong number of fields in CSV file!')
-					
-		for field, index in storedFields.pairs():
-			self.fields[field] = self.formatText(field, row[index])
+        for field, index in storedFields.pairs():
+            self.fields[field] = self.formatText(field, row[index])
 
-	def fromdict(self, mydict):
-		for field in storedFields:
-			try:
-				self.fields[field] = self.formatText(field, mydict[field])
-			except KeyError:
-				# Could use a getDefault() method
-				self.fields[field] = (False if (field == 'fill') else "")
-			except Exception as e:
-				raise Exception('%s at odo %s' % (str(e), mydict['odo']))
+    def fromdict(self, mydict):
+        for field in storedFields:
+            try:
+                self.fields[field] = self.formatText(field, mydict[field])
+            except KeyError:
+                # Could use a getDefault() method
+                self.fields[field] = (False if (field == 'fill') else "")
+            except Exception as e:
+                raise Exception('%s at odo %s' % (str(e), mydict['odo']))
 
-	def tolist(self):
-                j = 0
-		textrow = []
-		for j in range(0, len(storedFields)):
-			textrow.append(self.getText(storedFields[j]))
-		return textrow
+    def tolist(self):
+        j = 0
+        textrow = []
+        for j in range(0, len(storedFields)):
+            textrow.append(self.getText(storedFields[j]))
+        return textrow
 
-	def todict(self):
-                j = 0
-                attribs = dict()
-                for j in range(0, len(storedFields)):
-                    attribs[storedFields[j]] = self.getText(storedFields[j])
-		return attribs
+    def todict(self):
+        j = 0
+        attribs = dict()
+        for j in range(0, len(storedFields)):
+            attribs[storedFields[j]] = self.getText(storedFields[j])
+        return attribs
 
-	def getText(self, field):
-		if (field == "date"):
-			return self.fields[field].date().strftime(dateFmtStr)
+    def getText(self, field):
+        if (field == "date"):
+            return self.fields[field].date().strftime(dateFmtStr)
 
-		elif (field == "tankcost"):
-			cost = self.fields['gals'] * self.fields['dpg']
-			return "%.2f" % cost
+        elif (field == "tankcost"):
+            cost = self.fields['gals'] * self.fields['dpg']
+            return "%.2f" % cost
 
-# TODO justify numeric fields to right 
-			
-		elif (field == "fill"):
-			return "Yes" if self.fields[field] else "No"
+# TODO justify numeric fields to right
+        elif (field == "fill"):
+            return "Yes" if self.fields[field] else "No"
 
-		# no special treatment necessary, return as-is
-		else:
-			return "%s" % self.fields[field]
+        # no special treatment necessary, return as-is
+        else:
+            return "%s" % self.fields[field]
 
-	def setText(self, field, text):
-		self.fields[field] = self.formatText(field, text)
+    def setText(self, field, text):
+        self.fields[field] = self.formatText(field, text)
 
-	@staticmethod
-	def formatText(field, text):
-		try:
-			if (field == "odo"):
-				retval = int(text)
-			elif (field == "date"):
-				retval = datetime.datetime.strptime(text, dateFmtStr)
-			elif (field == "gals" or field == "dpg"):
-				retval = round(float(text), numSigFigs)
-			elif (field == "fill"):
-				retval = (text.lower() == "yes")
-			else:	# return value as-is
-				retval = text.strip()
-		except Exception as e:
-			raise Exception('%s in field "%s" with value "%s"' % (str(e), field, text))
+    @staticmethod
+    def formatText(field, text):
+        try:
+            if (field == "odo"):
+                retval = int(text)
+            elif (field == "date"):
+                retval = datetime.datetime.strptime(text, dateFmtStr)
+            elif (field == "gals" or field == "dpg"):
+                retval = round(float(text), numSigFigs)
+            elif (field == "fill"):
+                retval = (text.lower() == "yes")
+            else:    # return value as-is
+                retval = text.strip()
+        except Exception as e:
+            raise Exception('%s in field "%s" with value "%s"' % (str(e), field, text))
 
-		return retval
+        return retval
 
 class Address:
-	def __init__(self, address="", city="", state="", zip=0):
-		self.address = address
-		self.city = city
-		self.state = state
-		self.zip = zip
-	#def __getitem__(self, name):
-		#self.__getattr__(name)
+    def __init__(self, address="", city="", state="", zip=0):
+        self.address = address
+        self.city = city
+        self.state = state
+        self.zip = zip
+    #def __getitem__(self, name):
+        #self.__getattr__(name)
 
 # This class opens/saves files, and manages the data in memory
 class DataBase:
-	# variables here are static 
-	dirty_bit = False		# true if the data from the file has been modified
-	filename = ""		 # name of the file that's open
-	recordTable = []		# the actual records
-	addressTable = [] 		# addresses of stations 
-	
-	def __getitem__(self, index):
-		"""
-		This enables you to get a record from the database without 
-		using the recordTable directly. 
-		i.e., myDB.recordTable[index] -> myDB[index]
-		"""
-		return self.recordTable[index]
+    # variables here are static
+    dirty_bit = False        # true if the data from the file has been modified
+    filename = ""         # name of the file that's open
+    recordTable = []        # the actual records
+    addressTable = []         # addresses of stations
+
+    def __getitem__(self, index):
+        """
+        This enables you to get a record from the database without
+        using the recordTable directly.
+        i.e., myDB.recordTable[index] -> myDB[index]
+        """
+        return self.recordTable[index]
 
         def __delitem__ (self, item):
                 del self.recordTable[item]
-        
-	def __len__(self):
-		return len(self.recordTable)
-
-	def newfile(self):
-		self.recordTable = []
-		self.filename = ""
-
-		return
-		
-	def loadFile(self, filename):
-		# Load records from CSV file
-		self.newfile()
-		
-		if (filename.lower().endswith('csv')):
-			fileReader = csv.reader(open(filename), delimiter=',', quotechar='"')
-
-			for row in fileReader:
-				# check first if this is a preference record
-				if (row[0] == 'pref'):
-					print "WARNING: Ignoring user preference from vehicle data file"
-					#UserPreferences[row[1]] = row[2]
-					
-				elif (row[0] == 'veh'):
-					VehProperties[row[1]] = row[2] 
-					
-				else:
-					self.recordTable.append(FuelRecord(row))
-					
-		elif (filename.lower().endswith('xml')):
-			import xml.etree.ElementTree as etree
-			mytree = etree.parse(filename)
-			myroot = mytree.getroot()
-
-			for child in myroot[0]:
-				if (child.tag == 'user'):
-					print "WARNING: Ignoring user preference from vehicle data file"
-					#for pref in child:
-						#UserPreferences[pref.attrib['name']] = pref.attrib['value']
-				if (child.tag == 'vehicle'):
-					for pref in child:
-						VehProperties[pref.attrib['name']] = pref.attrib['value']
-				if (child.tag == 'fuel'):
-					for record in child:
-						# For backwards-compatibility 
-						if (myroot[0].attrib['version'] == '0.1' and 'location' in record.attrib):
-							record.attrib['address'] = record.attrib['location']
-							del record.attrib['location']
-						self.recordTable.append(FuelRecord(record.attrib))
-
-			
-		else: 
-			raise NameError("Unknown file type")
-
-
-		self.filename = filename # Save file name for later
-
-		self.sortRecords()
-
-		return
-
-	def saveFile(self):
-		if (self.filename.lower().endswith('csv')):
-			# Save records back to a CSV file
-			fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
-
-			for prop in VehProperties.keys():
-				fileWriter.writerow(['veh', prop, VehProperties[prop]])
-
-			i = 0
-			for i in range(0, len(self.recordTable)):
-				fileWriter.writerow(self[i].tolist())
-
-		elif (self.filename.lower().endswith('xml')):
-			# Create an XML
-			import xml.etree.ElementTree as etree
-
-			myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
-			mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': pmxversion, 'generator': progname})
-
-			myuser = etree.SubElement(mypmx, 'user')
-			for pref in UserPreferences.keys():
-				etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
-
-			myveh = etree.SubElement(mypmx, 'vehicle')
-			for prop in VehProperties.keys():
-				etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
-
-			myfuel = etree.SubElement(mypmx, 'fuel')
-
-			i = 0
-			for i in range(0, len(self.recordTable)):
-				etree.SubElement(myfuel, 'record', attrib=self[i].todict())
-
-			xmlfile = open(self.filename, 'w')
-			xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
-			xmlfile.write(etree.tostring(myxml))
-			xmlfile.flush()
-			xmlfile.close()
-
-		else:
-			raise NameError('Unknown file type')
-
-		return
-
-	def sumWhileFalse(self, row, sumfield, checkfield):
-		# Start by adding this row's value
-		total = float( self.getText(row, sumfield) )
-		# Start with the previous row
-		lastTrue = row - 1
-
-		while (lastTrue > 1 and self.getText(lastTrue, checkfield) != "Yes"):
-
-			try: 
-				total = total + float( self.getText(lastTrue, sumfield) ) 
-			except ValueError as e: 
-				break
-			#if sumfield == 'gals':
-				#print row, lastTrue, checkfield, sumfield, self.getText(row - lastTrue, checkfield), self.getText(row - lastTrue, sumfield), total
-			lastTrue -= 1 # keep going back until we find one that is true 
-		
-		#print [self.getText(row, "odo"), row, lastTrue, sumfield, checkfield, total]
-
-		return [lastTrue, total]
-
-	def getText(self, row, field):
-		# hooks for certain derived fields
-		if (field == "days"):
-			if (row == 0):
-				return invalidStr
-
-			timedelta = self[row].date - self[row - 1].date
-
-			return "%d" % timedelta.days
-
-		elif (field == "dist"):
-			if (row == 0):
-				return invalidStr
-
-			return "%d" % (self[row].odo - self[row - 1].odo)
-
-		elif (field == "mpd"):
-			if (row == 0):
-				return invalidStr
-
-			dist = self[row].odo - self[row - 1].odo
-			timedelta = self[row].date - self[row - 1].date
-			days = timedelta.days
-
-			# This saturates to "miles per fill-up" in the case of more than one 
-			# fill-up per day. 
-			if (days == 0):
-				# I'll use the following assumption: No more than two fill-ups per day. 
-				# Then, in the case of the second, a half-day has passed. 
-				mpd = 2 * dist 
-			else:
-				mpd = dist / days
-
-			return "%d" % mpd
-
-		elif (field == "mpg"):
-			if (row == 0 or not self[row].fill):
-				# no MPG for this record
-				return invalidStr
-			else:
-				totalMiles = self.sumWhileFalse(row, "dist", "fill")[1]
-				totalFuel = self.sumWhileFalse(row, "gals", "fill")[1]
-
-				return "%0.1f" % (totalMiles / totalFuel)
-				# DEBUG
-				#return "%d %0.1f/%0.1f=%0.1f" % (row, totalMiles, totalFuel, totalMiles/totalFuel)
-			
-		elif (field == "dpd"):
-			if (row == 0):
-				return invalidStr
-
-			try:
-				# recursive calls here
-				tankcost = float( self.getText(row, "tankcost") )
-				days = float( self.getText(row, "days") )
-
-				# dollars / day = tankcost / days 
-				return "%0.2f" % (tankcost / days) 
-
-			except ValueError:
-				return invalidStr
-
-			except ZeroDivisionError:
-				return invalidStr
-
-		elif (field == "dpm"):
-			# dollars per mile 
-			
-			if (row == 0 or not self[row].fill):
-			# if did not fill, then tankcost does not correspond to distance
-				return invalidStr
-
-			try:
-				tankcost = self.sumWhileFalse(row, "tankcost", "fill")[1]
-				dist = self.sumWhileFalse(row, "dist", "fill")[1]
-			
-				# [tank cost] / [miles traveled] 
-				return "%0.3f" % (tankcost / dist) 
-
-			except ValueError:
-				return invalidStr
-
-			except ZeroDivisionError:
-				return invalidStr
-
-		# it's just a stored field 
-		else: 
-			return self[row].getText(field)
-
-	def getRowOf(self, key):
-		for x in range(0, len(self.recordTable)):
-			if (key == self[x][storedFields[sortField]]): 
-				return x
-			
-		return False
-	
-	def addNewRecord(self, record=FuelRecord):
-
-		#record.append(len(self.recordTable))
-		self.recordTable.append(record) 
-		self.sortRecords()
-		
-		return
-
-	def sortRecords(self):
-		return self.recordTable.sort(cmp=FuelRecord.__cmp__)
-
-	def updateAddressBook(self):
-		"""Create a map from station names to addresses"""
-		self.addressTable = dict()
-		for record in self.recordTable:
-			if (record.station == ""):
-				continue
-			elif (record.station not in self.addressTable.keys()):
-				# Not sure what to do yet, almost calls for a pop-up display
-				#self.addressTable[record.station] = None
-				self.addressTable[record.station] = Address(record.address, record.city, record.state, record.zip)
-			else:
-				# TODO replace this copying with an Address class method
-				for addressField in ['address', 'city', 'state', 'zip']:
-					if ((self.addressTable[record.station].__dict__[addressField] == "") and (addressField in record)):
-						#record.__dict__[addressField]
-					#print record.__dict__.keys()
-					#if (addressField in record.__dict__.keys()):
-						self.addressTable[record.station].__dict__[addressField] = record[addressField]
-		#for name in self.addressTable.keys():
-			#print name, ",", self.addressTable[name].address
-
-	def deleteRecord(self, row):
-		del(self[row])
-		return
-	   
-	# TODO broken
-	def exportWaveform(self, filename):
-		waveform = self.createWaveform()
-		wfmfile = open(filename, 'w')
-		wfmfile.write(waveform)
-		wfmfile.close()
-
-		return
-
-	def createWaveform(self):
-		# Need a function here for later piping with GNUPLOT
-		# Write a header comment to label the columns
-		wfm = "# "
-		for x in range(0, len(self.fullFields)):
-			if (not self.fullFields[x] in wfmcols):
-				pass
-			elif (self.fullFields[x] == 'date'):
-				# Because the date field is particularly wide
-				wfm += self.columnNames[x] + "\t\t"
-			else:
-				wfm += self.columnNames[x] + "\t"
-		wfm += "\n"
-
-		# Write data 
-		for x in range(0, len(self.recordTable)):
-			line = ''
-			# TODO could leave these points in the waveform for mi/day and $/gal
-			for y in range(0, len(self.fullFields)):
-				if (self.fullFields[y] == 'date'):
-					# Convert the datetime obj to Epoch seconds
-					line += "%d" % time.mktime(self[x][storedFields.date].timetuple())
-				elif (not self.fullFields[y] in wfmcols):
-					# Skip these, they're not useful for plotting
-					pass
-				else:
-					line += "\t" + self[x].getText(self.fullFields[y]) 
-
-			# Make certain sequences GNUPLOT-friendly
-			line = line.replace('*', '')
-			line = line.replace(invalidStr, '0')
-			wfm += line + "\n"
-
-		return wfm
-
-	def getCol(self, field):
-		col = []
-		# TODO why can't I say: for item in self.recordTable ?
-		for i in range(0, len(self.recordTable)):
-			col.append(self[i][field])
-
-		return col
-	   
-	def getColSum(self, field):
-		sum = 0
-		for i in range(0, len(self.recordTable)):
-			sum += float(self[i][field])
-
-		return sum
-
-	def getColProdSum(self, field1, field2):
-		sum = 0
-		for i in range(0, len(self.recordTable)):
-			sum += float(self[i][field1]) * float(self[i][field2])
-
-		return sum
-	   
-	def getIndexOfDate(self, date):
-		index = len(self.recordTable) - 1
-		while (self[index].date > date):
-			index = index - 1
-		return index
-
-
-
-	def getSummaryTable(self): 
-
-		totalGals = self.getColSum('gals')
-		totalMiles = self[-1].odo - self[0].odo
-		averageRange = totalMiles / len(self.recordTable)
-		totalDays = (self[-1].date - self[0].date).days
-		totalCost = self.getColProdSum('gals', 'dpg')
-		averageMPG = totalMiles / totalGals
-		averageMPY = daysPerYear * totalMiles / totalDays
-		timeDiff = datetime.timedelta(days= -daysPerYear)
-
-		indexOfYearAgo = self.getIndexOfDate(self[-1].date + timeDiff)
-		milesThisYear = self[-1].odo - self[indexOfYearAgo].odo
-		runningMPY = milesThisYear
-
-		tableLabels = ['Number of records:', len(self.recordTable), '',
-			'Gallons consumed:', "%.1f" % totalGals, 'gal',
-			'Miles travelled:', "%d" % totalMiles, 'mi',
-			'Days on record:', "%d" % totalDays, 'days',
-			'Total gas cost:', "%.2f" % totalCost, 'USD',
-			'Average miles/gal:', "%.2f" % averageMPG, 'mi/gal',
-			'Average miles/year:', "%d" % averageMPY, 'mi',
-			'Running miles/year:', "%d" % runningMPY, 'mi',
-			'Average Range:', "%.2f" % averageRange, 'mi',
-			]
-
-		if ('TankSize' in VehProperties and len(VehProperties['TankSize']) > 0):
-			tableLabels.extend(['Theoretical Max. Range', "%.2f" % (averageMPG * float(VehProperties['TankSize'])), 'mi' ])
-		
-		return tableLabels
+
+    def __len__(self):
+        return len(self.recordTable)
+
+    def newfile(self):
+        self.recordTable = []
+        self.filename = ""
+
+        return
+
+    def loadFile(self, filename):
+        # Load records from CSV file
+        self.newfile()
+
+        if (filename.lower().endswith('csv')):
+            fileReader = csv.reader(open(filename), delimiter=',', quotechar='"')
+
+            for row in fileReader:
+                # check first if this is a preference record
+                if (row[0] == 'pref'):
+                    print "WARNING: Ignoring user preference from vehicle data file"
+                    #UserPreferences[row[1]] = row[2]
+
+                elif (row[0] == 'veh'):
+                    VehProperties[row[1]] = row[2]
+
+                else:
+                    self.recordTable.append(FuelRecord(row))
+
+        elif (filename.lower().endswith('xml')):
+            import xml.etree.ElementTree as etree
+            mytree = etree.parse(filename)
+            myroot = mytree.getroot()
+
+            for child in myroot[0]:
+                if (child.tag == 'user'):
+                    print "WARNING: Ignoring user preference from vehicle data file"
+                    #for pref in child:
+                        #UserPreferences[pref.attrib['name']] = pref.attrib['value']
+                if (child.tag == 'vehicle'):
+                    for pref in child:
+                        VehProperties[pref.attrib['name']] = pref.attrib['value']
+                if (child.tag == 'fuel'):
+                    for record in child:
+                        # For backwards-compatibility
+                        if (myroot[0].attrib['version'] == '0.1' and 'location' in record.attrib):
+                            record.attrib['address'] = record.attrib['location']
+                            del record.attrib['location']
+                        self.recordTable.append(FuelRecord(record.attrib))
+
+
+        else:
+            raise NameError("Unknown file type")
+
+
+        self.filename = filename # Save file name for later
+
+        self.sortRecords()
+
+        return
+
+    def saveFile(self):
+        if (self.filename.lower().endswith('csv')):
+            # Save records back to a CSV file
+            fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+
+            for prop in VehProperties.keys():
+                fileWriter.writerow(['veh', prop, VehProperties[prop]])
+
+            i = 0
+            for i in range(0, len(self.recordTable)):
+                fileWriter.writerow(self[i].tolist())
+
+        elif (self.filename.lower().endswith('xml')):
+            # Create an XML
+            import xml.etree.ElementTree as etree
+
+            myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
+            mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': pmxversion, 'generator': progname})
+
+            myuser = etree.SubElement(mypmx, 'user')
+            for pref in UserPreferences.keys():
+                etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
+
+            myveh = etree.SubElement(mypmx, 'vehicle')
+            for prop in VehProperties.keys():
+                etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
+
+            myfuel = etree.SubElement(mypmx, 'fuel')
+
+            i = 0
+            for i in range(0, len(self.recordTable)):
+                etree.SubElement(myfuel, 'record', attrib=self[i].todict())
+
+            xmlfile = open(self.filename, 'w')
+            xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
+            xmlfile.write(etree.tostring(myxml))
+            xmlfile.flush()
+            xmlfile.close()
+
+        else:
+            raise NameError('Unknown file type')
+
+        return
+
+    def sumWhileFalse(self, row, sumfield, checkfield):
+        # Start by adding this row's value
+        total = float( self.getText(row, sumfield) )
+        # Start with the previous row
+        lastTrue = row - 1
+
+        while (lastTrue > 1 and self.getText(lastTrue, checkfield) != "Yes"):
+
+            try:
+                total = total + float( self.getText(lastTrue, sumfield) )
+            except ValueError as e:
+                break
+            #if sumfield == 'gals':
+                #print row, lastTrue, checkfield, sumfield, self.getText(row - lastTrue, checkfield), self.getText(row - lastTrue, sumfield), total
+            lastTrue -= 1 # keep going back until we find one that is true
+
+        #print [self.getText(row, "odo"), row, lastTrue, sumfield, checkfield, total]
+
+        return [lastTrue, total]
+
+    def getText(self, row, field):
+        # hooks for certain derived fields
+        if (field == "days"):
+            if (row == 0):
+                return invalidStr
+
+            timedelta = self[row].date - self[row - 1].date
+
+            return "%d" % timedelta.days
+
+        elif (field == "dist"):
+            if (row == 0):
+                return invalidStr
+
+            return "%d" % (self[row].odo - self[row - 1].odo)
+
+        elif (field == "mpd"):
+            if (row == 0):
+                return invalidStr
+
+            dist = self[row].odo - self[row - 1].odo
+            timedelta = self[row].date - self[row - 1].date
+            days = timedelta.days
+
+            # This saturates to "miles per fill-up" in the case of more than one
+            # fill-up per day.
+            if (days == 0):
+                # I'll use the following assumption: No more than two fill-ups per day.
+                # Then, in the case of the second, a half-day has passed.
+                mpd = 2 * dist
+            else:
+                mpd = dist / days
+
+            return "%d" % mpd
+
+        elif (field == "mpg"):
+            if (row == 0 or not self[row].fill):
+                # no MPG for this record
+                return invalidStr
+            else:
+                totalMiles = self.sumWhileFalse(row, "dist", "fill")[1]
+                totalFuel = self.sumWhileFalse(row, "gals", "fill")[1]
+
+                return "%0.1f" % (totalMiles / totalFuel)
+                # DEBUG
+                #return "%d %0.1f/%0.1f=%0.1f" % (row, totalMiles, totalFuel, totalMiles/totalFuel)
+
+        elif (field == "dpd"):
+            if (row == 0):
+                return invalidStr
+
+            try:
+                # recursive calls here
+                tankcost = float( self.getText(row, "tankcost") )
+                days = float( self.getText(row, "days") )
+
+                # dollars / day = tankcost / days
+                return "%0.2f" % (tankcost / days)
+
+            except ValueError:
+                return invalidStr
+
+            except ZeroDivisionError:
+                return invalidStr
+
+        elif (field == "dpm"):
+            # dollars per mile
+
+            if (row == 0 or not self[row].fill):
+            # if did not fill, then tankcost does not correspond to distance
+                return invalidStr
+
+            try:
+                tankcost = self.sumWhileFalse(row, "tankcost", "fill")[1]
+                dist = self.sumWhileFalse(row, "dist", "fill")[1]
+
+                # [tank cost] / [miles traveled]
+                return "%0.3f" % (tankcost / dist)
+
+            except ValueError:
+                return invalidStr
+
+            except ZeroDivisionError:
+                return invalidStr
+
+        # it's just a stored field
+        else:
+            return self[row].getText(field)
+
+    def getRowOf(self, key):
+        for x in range(0, len(self.recordTable)):
+            if (key == self[x][storedFields[sortField]]):
+                return x
+
+        return False
+
+    def addNewRecord(self, record=FuelRecord):
+
+        #record.append(len(self.recordTable))
+        self.recordTable.append(record)
+        self.sortRecords()
+
+        return
+
+    def sortRecords(self):
+        return self.recordTable.sort(cmp=FuelRecord.__cmp__)
+
+    def updateAddressBook(self):
+        """Create a map from station names to addresses"""
+        self.addressTable = dict()
+        for record in self.recordTable:
+            if (record.station == ""):
+                continue
+            elif (record.station not in self.addressTable.keys()):
+                # Not sure what to do yet, almost calls for a pop-up display
+                #self.addressTable[record.station] = None
+                self.addressTable[record.station] = Address(record.address, record.city, record.state, record.zip)
+            else:
+                # TODO replace this copying with an Address class method
+                for addressField in ['address', 'city', 'state', 'zip']:
+                    if ((self.addressTable[record.station].__dict__[addressField] == "") and (addressField in record)):
+                        #record.__dict__[addressField]
+                    #print record.__dict__.keys()
+                    #if (addressField in record.__dict__.keys()):
+                        self.addressTable[record.station].__dict__[addressField] = record[addressField]
+        #for name in self.addressTable.keys():
+            #print name, ",", self.addressTable[name].address
+
+    def deleteRecord(self, row):
+        del(self[row])
+        return
+
+    # TODO broken
+    def exportWaveform(self, filename):
+        waveform = self.createWaveform()
+        wfmfile = open(filename, 'w')
+        wfmfile.write(waveform)
+        wfmfile.close()
+
+        return
+
+    def createWaveform(self):
+        # Need a function here for later piping with GNUPLOT
+        # Write a header comment to label the columns
+        wfm = "# "
+        for x in range(0, len(self.fullFields)):
+            if (not self.fullFields[x] in wfmcols):
+                pass
+            elif (self.fullFields[x] == 'date'):
+                # Because the date field is particularly wide
+                wfm += self.columnNames[x] + "\t\t"
+            else:
+                wfm += self.columnNames[x] + "\t"
+        wfm += "\n"
+
+        # Write data
+        for x in range(0, len(self.recordTable)):
+            line = ''
+            # TODO could leave these points in the waveform for mi/day and $/gal
+            for y in range(0, len(self.fullFields)):
+                if (self.fullFields[y] == 'date'):
+                    # Convert the datetime obj to Epoch seconds
+                    line += "%d" % time.mktime(self[x][storedFields.date].timetuple())
+                elif (not self.fullFields[y] in wfmcols):
+                    # Skip these, they're not useful for plotting
+                    pass
+                else:
+                    line += "\t" + self[x].getText(self.fullFields[y])
+
+            # Make certain sequences GNUPLOT-friendly
+            line = line.replace('*', '')
+            line = line.replace(invalidStr, '0')
+            wfm += line + "\n"
+
+        return wfm
+
+    def getCol(self, field):
+        col = []
+        # TODO why can't I say: for item in self.recordTable ?
+        for i in range(0, len(self.recordTable)):
+            col.append(self[i][field])
+
+        return col
+
+    def getColSum(self, field):
+        sum = 0
+        for i in range(0, len(self.recordTable)):
+            sum += float(self[i][field])
+
+        return sum
+
+    def getColProdSum(self, field1, field2):
+        sum = 0
+        for i in range(0, len(self.recordTable)):
+            sum += float(self[i][field1]) * float(self[i][field2])
+
+        return sum
+
+    def getIndexOfDate(self, date):
+        index = len(self.recordTable) - 1
+        while (self[index].date > date):
+            index = index - 1
+        return index
+
+
+
+    def getSummaryTable(self):
+
+        totalGals = self.getColSum('gals')
+        totalMiles = self[-1].odo - self[0].odo
+        averageRange = totalMiles / len(self.recordTable)
+        totalDays = (self[-1].date - self[0].date).days
+        totalCost = self.getColProdSum('gals', 'dpg')
+        averageMPG = totalMiles / totalGals
+        averageMPY = daysPerYear * totalMiles / totalDays
+        timeDiff = datetime.timedelta(days= -daysPerYear)
+
+        indexOfYearAgo = self.getIndexOfDate(self[-1].date + timeDiff)
+        milesThisYear = self[-1].odo - self[indexOfYearAgo].odo
+        runningMPY = milesThisYear
+
+        tableLabels = ['Number of records:', len(self.recordTable), '',
+            'Gallons consumed:', "%.1f" % totalGals, 'gal',
+            'Miles travelled:', "%d" % totalMiles, 'mi',
+            'Days on record:', "%d" % totalDays, 'days',
+            'Total gas cost:', "%.2f" % totalCost, 'USD',
+            'Average miles/gal:', "%.2f" % averageMPG, 'mi/gal',
+            'Average miles/year:', "%d" % averageMPY, 'mi',
+            'Running miles/year:', "%d" % runningMPY, 'mi',
+            'Average Range:', "%.2f" % averageRange, 'mi',
+            ]
+
+        if ('TankSize' in VehProperties and len(VehProperties['TankSize']) > 0):
+            tableLabels.extend(['Theoretical Max. Range', "%.2f" % (averageMPG * float(VehProperties['TankSize'])), 'mi' ])
+
+        return tableLabels
 
 class EditWindow:
-    
+
     def __init__(self, interface, database, row):
         self.interface = interface
         self.database = database
@@ -604,50 +603,50 @@ class EditWindow:
 
     def addToRow(self, widget, offset):
         newrow = self.row + offset
-	#print "addToRow", self.row, newrow
+    #print "addToRow", self.row, newrow
         if ((newrow >= 0) and (newrow < len(self.database))):
-	   #print "OK", newrow
+       #print "OK", newrow
            self.row = newrow
 
-	   self.prev_button.set_sensitive((self.row - 1) >= 0)
-	   self.next_button.set_sensitive((self.row + 1) < len(self.database))
-        
-	   self.update()
-        
+       self.prev_button.set_sensitive((self.row - 1) >= 0)
+       self.next_button.set_sensitive((self.row + 1) < len(self.database))
+
+       self.update()
+
     def update(self):
-        
-	for key, entry in self.entryMap.items():
-		if (key == 'fill'):
-                	entry.set_active(self.database[self.row].fill)
-		else:
-			entry.set_text(self.database.getText(self.row, key))
+
+    for key, entry in self.entryMap.items():
+        if (key == 'fill'):
+                    entry.set_active(self.database[self.row].fill)
+        else:
+            entry.set_text(self.database.getText(self.row, key))
 
         self.setWindowTitle()
-	self.interface.selectRow(self.row)
+    self.interface.selectRow(self.row)
 
         return
 
     def updateBool(self, entry, window, col):
         if (self.row != None):
             self.interface.updateField(entry, window, col)
-        
+
 
     def updateField(self, entry, editwindow, col):
-	if (self.row != None):
-        	self.interface.updateField(entry, editwindow, col)
+    if (self.row != None):
+            self.interface.updateField(entry, editwindow, col)
         #print "DEBUG: Update field"
-	if (col == storedFields.station):
+    if (col == storedFields.station):
             #print "DEBUG: Update station"
-            self.database.updateAddressBook() # TODO might not be best placed here 
-	    if (entry.get_text() in self.database.addressTable.keys()):
-	    # Update the address, city, state and zip 
+            self.database.updateAddressBook() # TODO might not be best placed here
+        if (entry.get_text() in self.database.addressTable.keys()):
+        # Update the address, city, state and zip
                 #print "DEBUG: Yes"
-	        for addressField in ['address', 'city', 'state', 'zip']:
+            for addressField in ['address', 'city', 'state', 'zip']:
                     if (editwindow.entryMap[addressField].get_text() == ""):
                         text = self.database.addressTable[entry.get_text()].__dict__[addressField]
                         self.entryMap[addressField].set_text(text)
-			if (self.row != None):
-		    		self.database[self.row][addressField] = text       
+            if (self.row != None):
+                    self.database[self.row][addressField] = text
 
     def saveNewRecord(self, widget):
         newrownum = len(self.database.recordTable)
