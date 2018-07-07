@@ -48,7 +48,7 @@ class PrefManager:
 				#print "User Preferences: " + child.attrib['name'] + " = " + child.attrib['value']
 				self.UserPreferences[child.attrib['name']] = child.attrib['value']
 
-		print "Loaded preferences from '%s'" % self.prefFile
+		print("Loaded preferences from '%s'" % self.prefFile)
 
 	def save(self):
 		myxml = etree.Element('xml', attrib={'version':'1.0', 'encoding':'UTF-8'})
@@ -57,12 +57,12 @@ class PrefManager:
 
 		if (not os.path.isdir(os.path.dirname(self.prefFile))):
 			os.mkdir(os.path.dirname(self.prefFile))
-		xmlfile = open(self.prefFile, 'w')
+		xmlfile = open(self.prefFile, 'wb')
 		#xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
 		xmlfile.write(etree.tostring(myxml))
 		xmlfile.flush()
 		xmlfile.close()
-		print "Preferences saved to '%s'" % self.prefFile
+		print("Preferences saved to '%s'" % self.prefFile)
 	
 	def __setitem__(self, key, value):
 		if (self.UserPreferences[key] != value):

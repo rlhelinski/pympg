@@ -42,7 +42,7 @@ class Enum():
         return len(self.enumd)
     def __getitem__(self, index):
         try:
-            return self.enumd.keys()[self.enumd.values().index(index)]
+            return list(self.enumd)[index]
         except ValueError:
             raise IndexError
     def __getattr__(self, name):
@@ -245,7 +245,7 @@ class DataBase:
             for row in fileReader:
                 # check first if this is a preference record
                 if (row[0] == 'pref'):
-                    print "WARNING: Ignoring user preference from vehicle data file"
+                    print("WARNING: Ignoring user preference from vehicle data file")
                     #UserPreferences[row[1]] = row[2]
 
                 elif (row[0] == 'veh'):
@@ -261,7 +261,7 @@ class DataBase:
 
             for child in myroot[0]:
                 if (child.tag == 'user'):
-                    print "WARNING: Ignoring user preference from vehicle data file"
+                    print("WARNING: Ignoring user preference from vehicle data file")
                     #for pref in child:
                         #UserPreferences[pref.attrib['name']] = pref.attrib['value']
                 if (child.tag == 'vehicle'):
@@ -275,10 +275,8 @@ class DataBase:
                             del record.attrib['location']
                         self.recordTable.append(FuelRecord(record.attrib))
 
-
         else:
             raise NameError("Unknown file type")
-
 
         self.filename = filename # Save file name for later
 
@@ -447,7 +445,6 @@ class DataBase:
         return False
 
     def addNewRecord(self, record=FuelRecord):
-
         #record.append(len(self.recordTable))
         self.recordTable.append(record)
         self.sortRecords()
@@ -555,9 +552,7 @@ class DataBase:
         return index
 
 
-
     def getSummaryTable(self):
-
         totalGals = self.getColSum('gals')
         totalMiles = self[-1].odo - self[0].odo
         averageRange = totalMiles / len(self.recordTable)
@@ -603,9 +598,7 @@ class EditWindow:
 
     def addToRow(self, widget, offset):
         newrow = self.row + offset
-    #print "addToRow", self.row, newrow
         if ((newrow >= 0) and (newrow < len(self.database))):
-       #print "OK", newrow
            self.row = newrow
 
        self.prev_button.set_sensitive((self.row - 1) >= 0)
@@ -640,7 +633,6 @@ class EditWindow:
             self.database.updateAddressBook() # TODO might not be best placed here
         if (entry.get_text() in self.database.addressTable.keys()):
         # Update the address, city, state and zip
-                #print "DEBUG: Yes"
             for addressField in ['address', 'city', 'state', 'zip']:
                     if (editwindow.entryMap[addressField].get_text() == ""):
                         text = self.database.addressTable[entry.get_text()].__dict__[addressField]
@@ -661,9 +653,9 @@ class EditWindow:
                         and self.entryMap[storedFields[x]].get_text() == ""):
                         raise NameError('Missing required field')
                     newrow[storedFields[x]] = self.entryMap[storedFields[x]].get_text()
-                    
+
             # want to do a check here for the date being wrong
-            # records are sorted by odometer, need to make sure this record isn't before the previous or after the next 
+            # records are sorted by odometer, need to make sure this record isn't before the previous or after the next
         except ValueError:
             self.show_error('Invalid format, try again.')
         except NameError:
@@ -749,9 +741,9 @@ class EditWindow:
 	vbox.pack_start(self.table, False, False, 0)
 	vbox.pack_end(bbox, False, False, 0)
         self.editwindow.add(vbox)
-        
+
         self.setWindowTitle()
-        
+
         self.editwindow.show_all()
 
     def setWindowTitle(self):
@@ -1043,7 +1035,7 @@ class PyMPG:
 
     def newstatus(self, string):
         self.statusbar.pop(1)
-        print string
+        print(string)
         self.statusbar.push(1, string)
 
     def get_current_row(self):
@@ -1064,7 +1056,7 @@ class PyMPG:
                     time.mktime(self.database[row].date.timetuple()),
                     self.database.getText(row, self.plot_type))
                 self.plotData(self.plot_type)
-            
+
         return
 
     def clearAnnot(self, widget):
@@ -1091,7 +1083,7 @@ class PyMPG:
         
         # Persuade the user to fill out the file properties
         self.menuFileProperties(widget)
-        
+
         # Load new interface
         self.makeClean()
         self.on_file_loaded()
@@ -1099,7 +1091,7 @@ class PyMPG:
         self.newstatus("New file created")
 
         return
-    
+
     def menuOpenFile(self, widget):
         dialog = gtk.FileChooserDialog("Choose file", None, gtk.FILE_CHOOSER_ACTION_OPEN,
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
@@ -1132,17 +1124,17 @@ class PyMPG:
         dialog.destroy()
 
         return
-    
+
     def internOpenFile(self, filename):
         self.database.loadFile(filename)
         # Load new interface
         self.makeClean()
         self.on_file_loaded()
-        
+
         self.updateList()
-        
+
         self.newstatus("'" + self.database.filename + "' loaded")
-        
+
         return
 
     def menuFileSave(self, widget):
@@ -1153,7 +1145,7 @@ class PyMPG:
         # write the file that is open
         self.internFileSave()
         return
-    
+
     def menuFileSaveAs(self, widget):
         dialog = gtk.FileChooserDialog(title="Choose file name...",
                                        action=gtk.FILE_CHOOSER_ACTION_SAVE,
@@ -1195,14 +1187,14 @@ class PyMPG:
         dialog.destroy()
 
         return
-    
+
     def internFileSave(self):
 	# TODO this might change
         self.database.saveFile()
-        
+
         self.makeClean()
         self.newstatus("File '%s' saved." % self.database.filename)
-        
+
         return
 
 
@@ -1239,7 +1231,7 @@ class PyMPG:
         self.database.exportWaveform(filename)
 
         self.newstatus('Exported waveform to %s' % filename)
-        
+
         return
 
     def menuFileProperties(self, widget):
@@ -1263,13 +1255,13 @@ class PyMPG:
             table.attach(entry, 1, 2, x, x + 1)
 
         editwindow.add(table)
-        
+
         editwindow.show_all()
         self.newstatus("Opened window to edit vehicle properties")
-        
+
         return
-    
-    
+
+
     def updateProperty(self, entry, field):
         if (not VehProperties.has_key(field) or entry.get_text() != VehProperties[field]):
             self.makeDirty()
@@ -1362,7 +1354,7 @@ class PyMPG:
     def menuPlot(self, widget, field):
         self.plotData(field)
         return
-    
+
     def isPlotActive(self):
         return (self.gnuplot_p != False and self.gnuplot_p.poll() == None)
 
@@ -1409,7 +1401,7 @@ class PyMPG:
             ]
 
         if (not self.isPlotActive()):
-            print UserPreferences['GnuPlotPath']
+            print(UserPreferences['GnuPlotPath'])
             self.gnuplot_p = subprocess.Popen(
                 UserPreferences['GnuPlotPath'], shell=True,
                 stdin=subprocess.PIPE,
@@ -1421,7 +1413,7 @@ class PyMPG:
 
         for cmd in commands:
             if (self.gnuplot_p.poll() != None):
-                print "GNUPLOT terminated."
+                print("GNUPLOT terminated.")
                 return
 
             #print >> gnuplot_in, cmd
@@ -1663,7 +1655,7 @@ class PyMPG:
             self.database.dirty_bit = True
             self.savem.set_sensitive(True)
             self.setWindowTitle()
-            
+
         return
 
     def makeClean(self):
