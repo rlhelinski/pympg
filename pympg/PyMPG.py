@@ -11,6 +11,11 @@ import time
 import datetime
 #import traceback
 import subprocess
+import os
+import configparser
+import xml.etree.ElementTree as etree
+from xml.dom import minidom
+
 import gi; gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gtk, GdkPixbuf
 
@@ -34,78 +39,71 @@ try:
 except GLib.GError as error:
     print(error)
 
-# http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python/1695250#1695250
-class Enum():
-    def __init__(self, *sequential, **named):
-        self.enumd = dict(zip(sequential, range(len(sequential))), **named)
-    def __len__(self):
-        return len(self.enumd)
-    def __getitem__(self, index):
-        try:
-            return list(self.enumd)[index]
-        except ValueError:
-            raise IndexError
-    def __getattr__(self, name):
-        if name in self.enumd:
-            return self.enumd[name]
-        raise AttributeError
-    def value(self, name):
-        return self.enumd[name]
-    def pairs(self):
-        return self.enumd.items()
-
-# http://stackoverflow.com/questions/749796/pretty-printing-xml-in-python/4590052#4590052
-def xml_indent(elem, level=0):
-    """Add white space to XML DOM so that when it is converted to a string, it is pretty."""
-
-    i = "\n" + level*"  "
-    if len(elem):
-        if not elem.text or not elem.text.strip():
-            elem.text = i + "  "
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-        for elem in elem:
-            xml_indent(elem, level+1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-    else:
-        if level and (not elem.tail or not elem.tail.strip()):
-            elem.tail = i
-
 def mktimestamp(timeobj):
     return int(time.mktime(timeobj.timetuple()))
 
 def fmttimestamp(timestamp):
     return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
 
+def etree_pretty(elem):
+    '''Return a pretty-printed XML string for the Element.
+    '''
+    rough_string = etree.tostring(elem, 'utf-8')
+    reparsed = minidom.parseString(rough_string)
+    return reparsed.toprettyxml(indent='\t')
+
 # TODO most of these should move to the record class
-storedFields = Enum('odo', 'date', 'gals', 'dpg', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment')
-storedFieldLabels = Enum('Odometer', 'Date', 'Gallons', 'Price / Gal', 'Station', 'Address', 'City', 'State', 'ZIP', 'Filled?', 'Comment')
+storedFields = ['odo', 'date', 'gals', 'dpg', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment']
+storedFieldLabels = ['Odometer', 'Date', 'Gallons', 'Price / Gal', 'Station', 'Address', 'City', 'State', 'ZIP', 'Filled?', 'Comment']
 
-fullFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment')
-columnNames = Enum('Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', '$/mi', 'Station', 'Address', 'City', 'State', 'ZIP', 'Fill?', 'Comment')
+fullFields = ['odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm', 'station', 'address', 'city', 'state', 'zip', 'fill', 'comment']
+columnNames = ['Odo.', 'Date', 'Days', 'Dist.', 'Gals', 'mi/gal', '$/gal', 'Cost', 'mi/day', '$/day', '$/mi', 'Station', 'Address', 'City', 'State', 'ZIP', 'Fill?', 'Comment']
 
-numFields = Enum('odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm')
+numFields = ['odo', 'date', 'days', 'dist', 'gals', 'mpg', 'dpg', 'tankcost', 'mpd', 'dpd', 'dpm']
 
 # columns to put into waveform
-wfmcols = Enum('date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg')
+wfmcols = ['date', 'days', 'odo', 'dist', 'gals', 'dpg', 'tankcost', 'mpd', 'mpg']
 
-sortField = storedFields.odo
+sortField = storedFields.index('odo')
 
-# TODO replace with configparser https://docs.python.org/2/library/configparser.html
-from PrefManager import *
-UserPreferences = PrefManager()
+class UserPrefManager:
+    'Load and save user preferences'
+
+    file_path = os.path.expanduser(os.path.join('~', '.pympg', 'pympg.ini'))
+
+    def __init__(self):
+        self.config = configparser.ConfigParser()
+        if (os.path.isfile(self.file_path)):
+            self.load()
+        else:
+            self.load_defaults()
+
+    def __del__(self):
+        self.save()
+
+    def load(self):
+        self.config.read(self.file_path)
+
+    def load_defaults(self):
+        self.config['gnuplot'] = defaults = {'path': 'gnuplot',
+                                             'term': ''}
+        self.config['recent'] = []
+
+    def save(self):
+        with open(self.file_path, 'w') as configfile:
+            self.config.write(configfile)
+
 
 # TODO these should be part of the database, but they are not
 VehProperties = dict()
-vehPrefFields = Enum("Year","Make","Model","TankSize","ServiceOffset","ServiceInterval","Owner")
+vehPrefFields = ["Year","Make","Model","TankSize","ServiceOffset","ServiceInterval","Owner"]
 
 class FuelRecord():
 
     def __init__(self, source=None):
         self.fields = dict()
 
-        if (type(source) == None):
+        if (type(source) is None):
             None
         elif (type(source) == list):
             self.fromlist(source)
@@ -204,8 +202,7 @@ class Address:
         self.city = city
         self.state = state
         self.zip = zip
-    #def __getitem__(self, name):
-        #self.__getattr__(name)
+
 
 # This class opens/saves files, and manages the data in memory
 class DataBase:
@@ -246,7 +243,6 @@ class DataBase:
                 # check first if this is a preference record
                 if (row[0] == 'pref'):
                     print("WARNING: Ignoring user preference from vehicle data file")
-                    #UserPreferences[row[1]] = row[2]
 
                 elif (row[0] == 'veh'):
                     VehProperties[row[1]] = row[2]
@@ -255,15 +251,12 @@ class DataBase:
                     self.recordTable.append(FuelRecord(row))
 
         elif (filename.lower().endswith('xml')):
-            import xml.etree.ElementTree as etree
             mytree = etree.parse(filename)
             myroot = mytree.getroot()
 
             for child in myroot[0]:
                 if (child.tag == 'user'):
                     print("WARNING: Ignoring user preference from vehicle data file")
-                    #for pref in child:
-                        #UserPreferences[pref.attrib['name']] = pref.attrib['value']
                 if (child.tag == 'vehicle'):
                     for pref in child:
                         VehProperties[pref.attrib['name']] = pref.attrib['value']
@@ -279,52 +272,62 @@ class DataBase:
             raise NameError("Unknown file type")
 
         self.filename = filename # Save file name for later
+        self.addRecent()
 
         self.sortRecords()
 
         return
 
+    def saveCSVFile(self):
+        'Save records back to a CSV file'
+
+        fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+
+        for prop in VehProperties.keys():
+            fileWriter.writerow(['veh', prop, VehProperties[prop]])
+
+        i = 0
+        for i in range(0, len(self.recordTable)):
+            fileWriter.writerow(self[i].tolist())
+
+    def saveXMLFile(self):
+        'Create an XML'
+
+        myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
+        mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': pmxversion, 'generator': progname})
+
+        myveh = etree.SubElement(mypmx, 'vehicle')
+        for prop in VehProperties.keys():
+            etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
+
+        myfuel = etree.SubElement(mypmx, 'fuel')
+
+        i = 0
+        for i in range(0, len(self.recordTable)):
+            etree.SubElement(myfuel, 'record', attrib=self[i].todict())
+
+        with open(self.filename, 'w') as xmlfile:
+            xmlfile.write(etree_pretty(myxml))
+
+    def addRecent(self):
+        if 'recent' not in UserPrefs.config:
+            UserPrefs.config['recent'] = {}
+        UserPrefs.config['recent']['slot0'] = self.filename
+
+
     def saveFile(self):
+        basename, extension = os.path.splitext(self.filename)
+        if not extension:
+            self.filename += '.xml'
+
         if (self.filename.lower().endswith('csv')):
-            # Save records back to a CSV file
-            fileWriter = csv.writer(open(self.filename, 'w'), delimiter=',', quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
-
-            for prop in VehProperties.keys():
-                fileWriter.writerow(['veh', prop, VehProperties[prop]])
-
-            i = 0
-            for i in range(0, len(self.recordTable)):
-                fileWriter.writerow(self[i].tolist())
-
+            self.saveCSVFile()
         elif (self.filename.lower().endswith('xml')):
-            # Create an XML
-            import xml.etree.ElementTree as etree
-
-            myxml = etree.Element('xml', attrib={'version': '1.0', 'encoding': 'UTF-8'})
-            mypmx = etree.SubElement(myxml, 'pmx', attrib={'version': pmxversion, 'generator': progname})
-
-            myuser = etree.SubElement(mypmx, 'user')
-            for pref in UserPreferences.keys():
-                etree.SubElement(myuser, 'pref', attrib={'name' : pref, 'value' : UserPreferences[pref]})
-
-            myveh = etree.SubElement(mypmx, 'vehicle')
-            for prop in VehProperties.keys():
-                etree.SubElement(myveh, 'prop', attrib={'name' : prop, 'value' : VehProperties[prop]})
-
-            myfuel = etree.SubElement(mypmx, 'fuel')
-
-            i = 0
-            for i in range(0, len(self.recordTable)):
-                etree.SubElement(myfuel, 'record', attrib=self[i].todict())
-
-            xmlfile = open(self.filename, 'w')
-            xml_indent(myxml) # add white space to XML DOM to result in pretty printed string
-            xmlfile.write(etree.tostring(myxml))
-            xmlfile.flush()
-            xmlfile.close()
-
+            self.saveXMLFile()
         else:
-            raise NameError('Unknown file type')
+            raise NameError('Unknown file type for "%s"' % self.filename)
+
+        self.addRecent()
 
         return
 
@@ -452,7 +455,7 @@ class DataBase:
         return
 
     def sortRecords(self):
-        return self.recordTable.sort(cmp=FuelRecord.__cmp__)
+        return self.recordTable.sort(key=FuelRecord.__cmp__)
 
     def updateAddressBook(self):
         """Create a map from station names to addresses"""
@@ -461,19 +464,12 @@ class DataBase:
             if (record.station == ""):
                 continue
             elif (record.station not in self.addressTable.keys()):
-                # Not sure what to do yet, almost calls for a pop-up display
-                #self.addressTable[record.station] = None
                 self.addressTable[record.station] = Address(record.address, record.city, record.state, record.zip)
             else:
                 # TODO replace this copying with an Address class method
                 for addressField in ['address', 'city', 'state', 'zip']:
                     if ((self.addressTable[record.station].__dict__[addressField] == "") and (addressField in record)):
-                        #record.__dict__[addressField]
-                    #print record.__dict__.keys()
-                    #if (addressField in record.__dict__.keys()):
                         self.addressTable[record.station].__dict__[addressField] = record[addressField]
-        #for name in self.addressTable.keys():
-            #print name, ",", self.addressTable[name].address
 
     def deleteRecord(self, row):
         del(self[row])
@@ -591,8 +587,8 @@ class EditWindow:
 
     def show_error (self, string):
         md = Gtk.MessageDialog(None,
-            Gtk.DIALOG_DESTROY_WITH_PARENT, Gtk.MESSAGE_ERROR,
-            Gtk.BUTTONS_CLOSE, string)
+            Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.CLOSE, string)
         md.run()
         md.destroy()
 
@@ -681,7 +677,7 @@ class EditWindow:
 
             if (storedFields[x] == 'fill'):
                 button = Gtk.CheckButton(storedFieldLabels[x])
-                if (self.row == None):
+                if (self.row is None):
                     button.set_active(False)
                 else:
                     button.set_active(self.database[self.row].fill)
@@ -690,32 +686,32 @@ class EditWindow:
                     self.entryMap[storedFields[x]] = button
             else:
                 entry = Gtk.Entry()
-        if (self.row == None):
-            if (storedFields[x] == 'date'):
-                entry.set_text(datetime.date.today().strftime(dateFmtStr))
-        else:
-            entry.set_text(self.database.getText(self.row, storedFields[x]))
+                if (self.row is None):
+                    if (storedFields[x] == 'date'):
+                        entry.set_text(datetime.date.today().strftime(dateFmtStr))
+                else:
+                    entry.set_text(self.database.getText(self.row, storedFields[x]))
             entry.connect("activate", self.updateField, self, x)
             entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
 
-        if (storedFields[x] not in ['gals', 'odo', 'date', 'dpg']):
-            # Auto-completion
-            completion = Gtk.EntryCompletion()
-            liststore = Gtk.ListStore(str)
-            entry.set_completion(completion)
-            completion.set_model(liststore)
-            completion.set_text_column(0)
+            if (storedFields[x] not in ['gals', 'odo', 'date', 'dpg']):
+                # Auto-completion
+                completion = Gtk.EntryCompletion()
+                liststore = Gtk.ListStore(str)
+                entry.set_completion(completion)
+                completion.set_model(liststore)
+                completion.set_text_column(0)
 
-            column = self.database.getCol(storedFields[x])
-            column = set(column)
-            for item in column:
-                liststore.append([item])
+                column = self.database.getCol(storedFields[x])
+                column = set(column)
+                for item in column:
+                    liststore.append([item])
 
-                self.table.attach(entry, 1, 2, x, x + 1)
-                self.entryMap[storedFields[x]] = entry
+            self.table.attach(entry, 1, 2, x, x + 1)
+            self.entryMap[storedFields[x]] = entry
 
         bbox = Gtk.HButtonBox()
-        if (self.row == None):
+        if (self.row is None):
             save_button = Gtk.Button(label="Save", stock=Gtk.STOCK_OK)
             save_button.connect("activate", self.saveNewRecord)
             save_button.connect("clicked", self.saveNewRecord)
@@ -746,7 +742,7 @@ class EditWindow:
         self.editwindow.show_all()
 
     def setWindowTitle(self):
-        if (self.row == None):
+        if (self.row is None):
             self.editwindow.set_title("New Record")
         else:
             self.editwindow.set_title("Edit Record %d" % (self.row + 1))
@@ -762,6 +758,8 @@ class EditWindow:
 
 # This class serves as an interface between other classes and the GTK user interface
 class PyMPG:
+    'Manages the GTK interface for the program'
+
     database = DataBase()   # a file interface class
     gnuplot_p = False        # not false if a pipe to GNUPLOT is open
     plot_type = ""        # type of plot that has been generated: 'mpd', 'mpg', or 'dpg'
@@ -987,10 +985,6 @@ class PyMPG:
         for n in range(0, len(columnNames)):
             cell = Gtk.CellRendererText()
             if (fullFields[n] in numFields):
-                #print "Yes"
-                #self.tvcolumn[n].set_alignment(1.0)
-                #import pango
-                #cell.set_property('alignment', pango.ALIGN_RIGHT)
                 cell.set_property('xalign', 1.0)
             self.tvcolumn[n] = Gtk.TreeViewColumn(columnNames[n], cell)
             self.tvcolumn[n].set_cell_data_func(cell, self.format_comment, fullFields[n])
@@ -1016,18 +1010,20 @@ class PyMPG:
     def quit(self, widget, data=None):
         if self.database.dirty_bit:
             diag = Gtk.MessageDialog(self.window,
-                Gtk.DIALOG_DESTROY_WITH_PARENT, Gtk.MESSAGE_WARNING,
-                Gtk.BUTTONS_OK_CANCEL,
+                Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.WARNING,
+                Gtk.ButtonsType.OK_CANCEL,
                 "There are unsaved changes. Close without saving?")
             diag.connect('response', self.quitResponse)
             diag.show()
         else:
+            UserPrefs.save()
             Gtk.main_quit()
 
         return True
 
     def quitResponse(self, widget, response, data=None):
-        if response == Gtk.RESPONSE_OK:
+        if response == Gtk.ResponseType.OK:
+            UserPrefs.save()
             Gtk.main_quit()
         else:
             widget.destroy()
@@ -1039,6 +1035,8 @@ class PyMPG:
 
     def get_current_row(self):
         model, it = self.treeview.get_selection().get_selected()
+        if it is None:
+            return None
         return model.get_value(it, 0)
 
     def on_row_select(self, widget):
@@ -1092,17 +1090,17 @@ class PyMPG:
         return
 
     def menuOpenFile(self, widget):
-        dialog = Gtk.FileChooserDialog("Choose file", None, Gtk.FILE_CHOOSER_ACTION_OPEN,
-                                       (Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL,
-                                       Gtk.STOCK_OPEN, Gtk.RESPONSE_OK))
-        dialog.set_default_response(Gtk.RESPONSE_OK)
+        dialog = Gtk.FileChooserDialog("Choose file", None, Gtk.FileChooserAction.OPEN,
+                                       (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                                       Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+        dialog.set_default_response(Gtk.ResponseType.OK)
         dialog.set_transient_for(self.window)
 
         filter = Gtk.FileFilter()
         filter.set_name("XML files")
     # since you create a dialect of XML, you can change the file extension, but I don't know what to call it yet
         filter.add_pattern("*.xml")
-        filter.add_pattern("*.pmx") # Python MPG XML?
+        filter.add_pattern("*.pmx") # PyMPG XML?
         dialog.add_filter(filter)
 
         filter = Gtk.FileFilter()
@@ -1116,10 +1114,10 @@ class PyMPG:
         dialog.add_filter(filter)
 
         response = dialog.run()
-        if response == Gtk.RESPONSE_OK:
+        if response == Gtk.ResponseType.OK:
             self.internOpenFile(dialog.get_filename())
 
-        elif response == Gtk.RESPONSE_CANCEL:
+        elif response == Gtk.ResponseType.CANCEL:
             self.newstatus('No file selected')
         dialog.destroy()
 
@@ -1148,13 +1146,13 @@ class PyMPG:
 
     def menuFileSaveAs(self, widget):
         dialog = Gtk.FileChooserDialog(title="Choose file name...",
-                                       action=Gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       action=Gtk.FileChooserAction.SAVE,
                                        buttons=(Gtk.STOCK_CANCEL,
-                                                Gtk.RESPONSE_CANCEL,
-                                                Gtk.STOCK_SAVE, Gtk.RESPONSE_OK)
+                                                Gtk.ResponseType.CANCEL,
+                                                Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
                                        )
 
-        dialog.set_default_response(Gtk.RESPONSE_OK)
+        dialog.set_default_response(Gtk.ResponseType.OK)
 
     # TODO this is the same as file open... combine
         filter = Gtk.FileFilter()
@@ -1174,13 +1172,13 @@ class PyMPG:
         dialog.add_filter(filter)
 
         response = dialog.run()
-        if response == Gtk.RESPONSE_OK:
+        if response == Gtk.ResponseType.OK:
             # maybe do some checking of the file name here
             #self.newstatus("New file name is %s" % dialog.get_filename())
             self.database.filename = dialog.get_filename()
             self.internFileSave()
 
-        elif response == Gtk.RESPONSE_CANCEL:
+        elif response == Gtk.ResponseType.CANCEL:
             self.newstatus('No file selected')
             return
 
@@ -1200,14 +1198,14 @@ class PyMPG:
 
     def menuFileExport(self, widget):
         dialog = Gtk.FileChooserDialog(title="Save waveform as...",
-                                       action=Gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       action=Gtk.FileChooserAction.SAVE,
                                        buttons=(Gtk.STOCK_CANCEL,
-                                                Gtk.RESPONSE_CANCEL,
+                                                Gtk.ResponseType.CANCEL,
                                                 Gtk.STOCK_SAVE,
-                                                Gtk.RESPONSE_OK))
+                                                Gtk.ResponseType.OK))
         dialog.set_current_name(self.database.filename.replace('.csv', '.wfm'))
 
-        dialog.set_default_response(Gtk.RESPONSE_OK)
+        dialog.set_default_response(Gtk.ResponseType.OK)
         filter = Gtk.FileFilter()
         filter.set_name("WFM files")
         filter.add_pattern("*.wfm")
@@ -1219,7 +1217,7 @@ class PyMPG:
         dialog.add_filter(filter)
 
         response = dialog.run()
-        if response == Gtk.RESPONSE_CANCEL:
+        if response == Gtk.ResponseType.CANCEL:
             self.newstatus('No file selected')
             dialog.destroy()
             return
@@ -1263,7 +1261,7 @@ class PyMPG:
 
 
     def updateProperty(self, entry, field):
-        if (not VehProperties.has_key(field) or entry.get_text() != VehProperties[field]):
+        if (field not in VehProperties or entry.get_text() != VehProperties[field]):
             self.makeDirty()
 
             VehProperties[field] = entry.get_text()
@@ -1281,20 +1279,20 @@ class PyMPG:
         editwindow = Gtk.Window()
         editwindow.set_title("User Preferences")
 
-        table = Gtk.Table(len(UserPreferences) + 1, 2, False)
+        table = Gtk.Table(len(UserPrefs) + 1, 2, False)
 
-        for x in range(0, len(UserPreferences)):
-            field = UserPreferences.keys()[x]
-            label = Gtk.Label(field)
-            table.attach(label, 0, 1, x, x + 1)
+        for section in ['gnuplot']:
+            for x, key in enumerate(UserPrefs[section]):
+                field = UserPrefs.keys()[x]
+                label = Gtk.Label(field)
+                table.attach(label, 0, 1, x, x + 1)
 
-            entry = Gtk.Entry()
+                entry = Gtk.Entry()
+                entry.set_text(UserPrefs[section][field])
 
-            entry.set_text(UserPreferences[field])
-
-            entry.connect("activate", self.updatePreference, field)
-            entry.connect("focus-out-event", self.prefWindowEntryFocusOut, field)
-            table.attach(entry, 1, 2, x, x + 1)
+                entry.connect("activate", self.updatePreference, field)
+                entry.connect("focus-out-event", self.prefWindowEntryFocusOut, field)
+                table.attach(entry, 1, 2, x, x + 1)
 
         editwindow.add(table)
 
@@ -1305,10 +1303,10 @@ class PyMPG:
 
 
     def updatePreference(self, entry, field):
-        if (entry.get_text() != UserPreferences[field]):
+        if (entry.get_text() != UserPrefs[field]):
             self.makeDirty()
 
-            UserPreferences[field] = entry.get_text()
+            UserPrefs[field] = entry.get_text()
 
             # redraw main window here
             self.newstatus("Updated %s preference" % field)
@@ -1356,7 +1354,7 @@ class PyMPG:
         return
 
     def isPlotActive(self):
-        return (self.gnuplot_p != False and self.gnuplot_p.poll() == None)
+        return (self.gnuplot_p != False and self.gnuplot_p.poll() is None)
 
     def updatePlot(self):
         if (self.isPlotActive()):
@@ -1385,7 +1383,7 @@ class PyMPG:
         commands = [
         # having trouble with default 'aqua' on Mac OSX
         # use 'wxt' or 'windows' for Windows
-            ("set term %s" % UserPreferences['GnuPlotTerm'] if ('GnuPlotTerm' in UserPreferences) and (UserPreferences['GnuPlotTerm'].strip() != "") else ""),
+            ("set term %s" % UserPrefs['GnuPlotTerm'] if ('GnuPlotTerm' in UserPrefs) and (UserPrefs['GnuPlotTerm'].strip() != "") else ""),
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             #"set xtics rotate by 90",
@@ -1401,9 +1399,9 @@ class PyMPG:
             ]
 
         if (not self.isPlotActive()):
-            print(UserPreferences['GnuPlotPath'])
+            print(UserPrefs['GnuPlotPath'])
             self.gnuplot_p = subprocess.Popen(
-                UserPreferences['GnuPlotPath'], shell=True,
+                UserPrefs['GnuPlotPath'], shell=True,
                 stdin=subprocess.PIPE,
                 #stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT
@@ -1469,10 +1467,10 @@ class PyMPG:
         return
 
     def plotSave(self, widget):
-        dialog = Gtk.FileChooserDialog(title="Save plot as...", action=Gtk.FILE_CHOOSER_ACTION_SAVE, buttons=(Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL, Gtk.STOCK_SAVE, Gtk.RESPONSE_OK))
+        dialog = Gtk.FileChooserDialog(title="Save plot as...", action=Gtk.FileChooserAction.SAVE, buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
         dialog.set_current_name(self.database.filename.replace('.csv', '.ps'))
 
-        dialog.set_default_response(Gtk.RESPONSE_OK)
+        dialog.set_default_response(Gtk.ResponseType.OK)
         filter = Gtk.FileFilter()
         filter.set_name("PostScript files")
         filter.add_pattern("*.ps")
@@ -1484,7 +1482,7 @@ class PyMPG:
         dialog.add_filter(filter)
 
         response = dialog.run()
-        if response == Gtk.RESPONSE_CANCEL:
+        if response == Gtk.ResponseType.CANCEL:
             self.newstatus('No file selected')
             dialog.destroy()
             return
@@ -1639,8 +1637,8 @@ class PyMPG:
 
     def show_error (self, string):
         md = Gtk.MessageDialog(None,
-            Gtk.DIALOG_DESTROY_WITH_PARENT, Gtk.MESSAGE_ERROR,
-            Gtk.BUTTONS_CLOSE, string)
+            Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.CLOSE, string)
         md.run()
         md.destroy()
 
@@ -1683,6 +1681,9 @@ class PyMPG:
             self.statusbar.hide()
 
 
-gui = PyMPG()
-#gui.window.destroy()
-Gtk.main()
+if __name__ == '__main__':
+    UserPrefs = UserPrefManager()
+
+    gui = PyMPG()
+    #gui.window.destroy()
+    Gtk.main()
