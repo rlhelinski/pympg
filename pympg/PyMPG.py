@@ -210,10 +210,10 @@ class Address:
 # This class opens/saves files, and manages the data in memory
 class DataBase:
     # variables here are static
-    dirty_bit = False        # true if the data from the file has been modified
-    filename = ""         # name of the file that's open
+    dirty_bit = False       # true if the data from the file has been modified
+    filename = ""           # name of the file that's open
     recordTable = []        # the actual records
-    addressTable = []         # addresses of stations
+    addressTable = []       # addresses of stations
 
     def __getitem__(self, index):
         """
@@ -346,11 +346,7 @@ class DataBase:
                 total = total + float( self.getText(lastTrue, sumfield) )
             except ValueError as e:
                 break
-            #if sumfield == 'gals':
-                #print row, lastTrue, checkfield, sumfield, self.getText(row - lastTrue, checkfield), self.getText(row - lastTrue, sumfield), total
             lastTrue -= 1 # keep going back until we find one that is true
-
-        #print [self.getText(row, "odo"), row, lastTrue, sumfield, checkfield, total]
 
         return [lastTrue, total]
 
@@ -398,8 +394,6 @@ class DataBase:
                 totalFuel = self.sumWhileFalse(row, "gals", "fill")[1]
 
                 return "%0.1f" % (totalMiles / totalFuel)
-                # DEBUG
-                #return "%d %0.1f/%0.1f=%0.1f" % (row, totalMiles, totalFuel, totalMiles/totalFuel)
 
         elif (field == "dpd"):
             if (row == 0):
@@ -451,7 +445,6 @@ class DataBase:
         return False
 
     def addNewRecord(self, record=FuelRecord):
-        #record.append(len(self.recordTable))
         self.recordTable.append(record)
         self.sortRecords()
 
@@ -924,7 +917,6 @@ class PyMPG:
         plotmenu.append(sep)
 
         self.menuPlotTimeScale = Gtk.MenuItem("Time Scale")
-        #self.plotdpdm.connect("activate", self.menuPlot, 'dpd')
         plotmenu.append(self.menuPlotTimeScale)
 
         self.menuPlotTimeScaleMenu = Gtk.Menu()
@@ -1051,7 +1043,6 @@ class PyMPG:
                 self.newstatus("Cannot annotate plot, null data point.");
             else:
                 # highlight the corresponding point in the plot
-                #self.gnuplot_p.stdin.write("replot" + "\n")
                 self.gnuplot_annot = ", \"< echo %d %s\" using 1:2 with points lt 3 pt 3" % (
                     time.mktime(self.database[row].date.timetuple()),
                     self.database.getText(row, self.plot_type))
@@ -1101,7 +1092,8 @@ class PyMPG:
 
         filter = Gtk.FileFilter()
         filter.set_name("XML files")
-    # since you create a dialect of XML, you can change the file extension, but I don't know what to call it yet
+# since you create a dialect of XML, you can change the file extension,
+# but I don't know what to call it yet
         filter.add_pattern("*.xml")
         filter.add_pattern("*.pmx") # PyMPG XML?
         dialog.add_filter(filter)
@@ -1177,7 +1169,6 @@ class PyMPG:
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             # maybe do some checking of the file name here
-            #self.newstatus("New file name is %s" % dialog.get_filename())
             self.database.filename = dialog.get_filename()
             self.internFileSave()
 
@@ -1238,7 +1229,6 @@ class PyMPG:
     def menuFileProperties(self, widget):
         editwindow = Gtk.Window()
         editwindow.set_title("Vehicle Preferences")
-        #editwindow.set_size_request(400,300)
 
         table = Gtk.Table(len(vehPrefFields) + 1, 2, False)
 
@@ -1397,7 +1387,6 @@ class PyMPG:
             ("set term %s" % UserPrefs['GnuPlotTerm'] if ('GnuPlotTerm' in UserPrefs) and (UserPrefs['GnuPlotTerm'].strip() != "") else ""),
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
-            #"set xtics rotate by 90",
             "set xtics nomirror rotate by -45" if (self.timeScale != "periodic") else "set xtics rotate by 0",
             "set autoscale",
             "set log y" if (field == "mpd" or field == "dpd") else "unset log",
@@ -1414,18 +1403,14 @@ class PyMPG:
             self.gnuplot_p = subprocess.Popen(
                 UserPrefs['GnuPlotPath'], shell=True,
                 stdin=subprocess.PIPE,
-                #stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT
                 )
-            #gnuplot_in = open('gnuplot.in', 'w')
-            #print self.gnuplot_p.stdout.readline()
 
         for cmd in commands:
             if (self.gnuplot_p.poll() != None):
                 print("GNUPLOT terminated.")
                 return
 
-            #print >> gnuplot_in, cmd
             self.gnuplot_p.stdin.write(cmd + "\n")
 
 
@@ -1461,14 +1446,10 @@ class PyMPG:
                     # Convert the datetime obj to Epoch seconds
                     secs = "%d" % time.mktime(self.database[x].date.timetuple())
                     wfmstr = secs + "\t" + self.database.getText(x, field) + "\n"
-                    #print >> gnuplot_in, wfmstr
                     self.gnuplot_p.stdin.write(wfmstr)
                 self.gnuplot_p.stdin.write("e\n")
 
-        #self.gnuplot_p.stdout.read()
-
         self.newstatus("Generated %s plot." % titles[field])
-        #gnuplot_in.flush(); gnuplot_in.close()
 
         return
 
@@ -1519,7 +1500,6 @@ class PyMPG:
         self.recordList = Gtk.ListStore(object)
 # TODO improve sorting flexibility here
         for i in range(len(self.database.recordTable) - 1, -1, -1):
-        #for i in range(0, len(self.database.recordTable)):
             self.recordList.append([i])
         self.treeview.set_model(self.recordList)
 
@@ -1649,7 +1629,6 @@ class PyMPG:
 
     def format_comment(self, column, cell, model, it, field):
         row = model.get_value(it, 0)
-        #row = self.get_current_row()
         cell.set_property('text', self.database.getText(row, field))
         return
 
@@ -1690,5 +1669,4 @@ if __name__ == '__main__':
     UserPrefs = UserPrefManager()
 
     gui = PyMPG()
-    #gui.window.destroy()
     Gtk.main()
