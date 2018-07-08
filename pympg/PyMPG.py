@@ -1096,6 +1096,7 @@ class PyMPG:
                                        (Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL,
                                        Gtk.STOCK_OPEN, Gtk.RESPONSE_OK))
         dialog.set_default_response(Gtk.RESPONSE_OK)
+        dialog.set_transient_for(self.window)
 
         filter = Gtk.FileFilter()
         filter.set_name("XML files")
