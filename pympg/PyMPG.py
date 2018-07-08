@@ -1282,22 +1282,30 @@ class PyMPG:
         editwindow = Gtk.Window()
         editwindow.set_title("User Preferences")
 
-        table = Gtk.Table(len(UserPrefs) + 1, 2, False)
+        vbox = Gtk.VBox(False, 0)
+        vbox.set_border_width(5)
 
+        # TODO this is only implemented for a single section
         for section in ['gnuplot']:
-            for x, key in enumerate(UserPrefs[section]):
-                field = UserPrefs.keys()[x]
+            frame = Gtk.Frame()
+            frame.set_label(section)
+            table = Gtk.Table(len(UserPrefs.config[section]) + 1, 2, False)
+
+            for x, field in enumerate(UserPrefs.config[section]):
                 label = Gtk.Label(field)
-                table.attach(label, 0, 1, x, x + 1)
+                table.attach(label, 0, 1, x, x + 1, xpadding=5, ypadding=5)
 
                 entry = Gtk.Entry()
-                entry.set_text(UserPrefs[section][field])
+                entry.set_text(UserPrefs.config[section][field])
 
-                entry.connect("activate", self.updatePreference, field)
-                entry.connect("focus-out-event", self.prefWindowEntryFocusOut, field)
-                table.attach(entry, 1, 2, x, x + 1)
+                entry.connect("activate", self.updatePreference, section, field)
+                entry.connect("focus-out-event", self.prefWindowEntryFocusOut, section, field)
+                table.attach(entry, 1, 2, x, x + 1, xpadding=5, ypadding=5)
 
-        editwindow.add(table)
+            frame.add(table)
+            vbox.pack_start(frame, False, False, 0)
+
+        editwindow.add(vbox)
 
         editwindow.show_all()
         self.newstatus("Opened window to edit preferences")
@@ -1305,20 +1313,20 @@ class PyMPG:
         return
 
 
-    def updatePreference(self, entry, field):
-        if (entry.get_text() != UserPrefs[field]):
+    def updatePreference(self, entry, section, field):
+        if (entry.get_text() != UserPrefs.config[section][field]):
             self.makeDirty()
 
-            UserPrefs[field] = entry.get_text()
+            UserPrefs.config[section][field] = entry.get_text()
 
             # redraw main window here
             self.newstatus("Updated %s preference" % field)
 
         return
 
-    def prefWindowEntryFocusOut(self, widget, event, field):
+    def prefWindowEntryFocusOut(self, widget, event, section, field):
         # this basically throws out the 'event'
-        return self.updatePreference(widget, field)
+        return self.updatePreference(widget, section, field)
 
     def menuEditDel(self, widget):
         # TODO ask user if they're sure when I learn how
