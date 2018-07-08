@@ -128,6 +128,9 @@ class FuelRecord():
     def __cmp__(a, b):
         return cmp(a.odo, b.odo)
 
+    def __lt__(a, b):
+        return a.odo < b.odo
+
     def fromlist(self, row):
         if (len(row) != len(storedFields)):
             raise NameError('Wrong number of fields in CSV file!')
@@ -455,7 +458,7 @@ class DataBase:
         return
 
     def sortRecords(self):
-        return self.recordTable.sort(key=FuelRecord.__cmp__)
+        return self.recordTable.sort()
 
     def updateAddressBook(self):
         """Create a map from station names to addresses"""
@@ -505,7 +508,7 @@ class DataBase:
             for y in range(0, len(self.fullFields)):
                 if (self.fullFields[y] == 'date'):
                     # Convert the datetime obj to Epoch seconds
-                    line += "%d" % time.mktime(self[x][storedFields.date].timetuple())
+                    line += "%d" % time.mktime(self[x][storedFields.index('date')].timetuple())
                 elif (not self.fullFields[y] in wfmcols):
                     # Skip these, they're not useful for plotting
                     pass
@@ -623,16 +626,16 @@ class EditWindow:
     def updateField(self, entry, editwindow, col):
         if (self.row != None):
             self.interface.updateField(entry, editwindow, col)
-        if (col == storedFields.station):
+        if (col == storedFields.index('station')):
             self.database.updateAddressBook() # TODO might not be best placed here
-        if (entry.get_text() in self.database.addressTable.keys()):
+        if (entry.get_text() in self.database.addressTable):
         # Update the address, city, state and zip
             for addressField in ['address', 'city', 'state', 'zip']:
                 if (editwindow.entryMap[addressField].get_text() == ""):
                     text = self.database.addressTable[entry.get_text()].__dict__[addressField]
                     self.entryMap[addressField].set_text(text)
-            if (self.row != None):
-                self.database[self.row][addressField] = text
+                    if (self.row != None):
+                        self.database[self.row][addressField] = text
 
     def saveNewRecord(self, widget):
         newrownum = len(self.database.recordTable)
@@ -681,9 +684,9 @@ class EditWindow:
                     button.set_active(False)
                 else:
                     button.set_active(self.database[self.row].fill)
-                    button.connect("clicked", self.updateBool, self, x)
-                    self.table.attach(button, 1, 2, x, x + 1)
-                    self.entryMap[storedFields[x]] = button
+                button.connect("clicked", self.updateBool, self, x)
+                self.table.attach(button, 1, 2, x, x + 1)
+                self.entryMap[storedFields[x]] = button
             else:
                 entry = Gtk.Entry()
                 if (self.row is None):
@@ -691,24 +694,24 @@ class EditWindow:
                         entry.set_text(datetime.date.today().strftime(dateFmtStr))
                 else:
                     entry.set_text(self.database.getText(self.row, storedFields[x]))
-            entry.connect("activate", self.updateField, self, x)
-            entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
+                entry.connect("activate", self.updateField, self, x)
+                entry.connect("focus-out-event", self.editWindowEntryFocusOut, self, x)
 
-            if (storedFields[x] not in ['gals', 'odo', 'date', 'dpg']):
-                # Auto-completion
-                completion = Gtk.EntryCompletion()
-                liststore = Gtk.ListStore(str)
-                entry.set_completion(completion)
-                completion.set_model(liststore)
-                completion.set_text_column(0)
+                if (storedFields[x] not in ['gals', 'odo', 'date', 'dpg']):
+                    # Auto-completion
+                    completion = Gtk.EntryCompletion()
+                    liststore = Gtk.ListStore(str)
+                    entry.set_completion(completion)
+                    completion.set_model(liststore)
+                    completion.set_text_column(0)
 
-                column = self.database.getCol(storedFields[x])
-                column = set(column)
-                for item in column:
-                    liststore.append([item])
+                    column = self.database.getCol(storedFields[x])
+                    column = set(column)
+                    for item in column:
+                        liststore.append([item])
 
-            self.table.attach(entry, 1, 2, x, x + 1)
-            self.entryMap[storedFields[x]] = entry
+                self.table.attach(entry, 1, 2, x, x + 1)
+                self.entryMap[storedFields[x]] = entry
 
         bbox = Gtk.HButtonBox()
         if (self.row is None):
@@ -729,8 +732,8 @@ class EditWindow:
             self.next_button.connect("activate", self.addToRow, 1)
             self.next_button.connect("clicked", self.addToRow, 1)
             bbox.add(self.next_button)
-            bbox.set_spacing(20)
-            bbox.set_layout(Gtk.BUTTONBOX_SPREAD)
+        bbox.set_spacing(20)
+        bbox.set_layout(Gtk.ButtonBoxStyle.SPREAD)
 
         vbox = Gtk.VBox(False, 0)
         vbox.pack_start(self.table, False, False, 0)
@@ -788,19 +791,19 @@ class PyMPG:
         self.window.add_accel_group(agr)
 
         newi = Gtk.ImageMenuItem(Gtk.STOCK_NEW, agr)
-        key, mod = Gtk.accelerator_parse("N")
+        key, mod = Gtk.accelerator_parse("<Control>n")
         newi.add_accelerator("activate", agr, key, mod, Gtk.AccelFlags.VISIBLE)
         newi.connect("activate", self.menuFileNew)
         filemenu.append(newi)
 
         openm = Gtk.ImageMenuItem(Gtk.STOCK_OPEN, agr)
-        key, mod = Gtk.accelerator_parse("O")
+        key, mod = Gtk.accelerator_parse("<Control>o")
         openm.add_accelerator("activate", agr, key, mod, Gtk.AccelFlags.VISIBLE)
         openm.connect("activate", self.menuOpenFile)
         filemenu.append(openm)
 
         self.savem = Gtk.ImageMenuItem(Gtk.STOCK_SAVE, agr)
-        key, mod = Gtk.accelerator_parse("S")
+        key, mod = Gtk.accelerator_parse("<Control>s")
         self.savem.add_accelerator("activate", agr, key, mod, Gtk.AccelFlags.VISIBLE)
         self.savem.set_sensitive(False)
         self.savem.connect("activate", self.menuFileSave)
@@ -828,7 +831,7 @@ class PyMPG:
         filemenu.append(self.exportm)
 
         exit = Gtk.ImageMenuItem(Gtk.STOCK_QUIT, agr)
-        key, mod = Gtk.accelerator_parse("Q")
+        key, mod = Gtk.accelerator_parse("<Control>q")
         exit.add_accelerator("activate", agr, key, mod, Gtk.AccelFlags.VISIBLE)
         exit.connect("activate", self.quit)
         filemenu.append(exit)
@@ -1418,15 +1421,10 @@ class PyMPG:
             self.gnuplot_p.stdin.write(cmd + "\n")
 
 
-        #oldestDate = int(time.mktime(self.database[-1][storedFields.index('date')].timetuple())) - 31557600.0 #6*(52.0/12)*7*24*3600
-        # What is this constant I have subtracted?
         oldestDate = mktimestamp(self.database[-1].date) - 31557600.0 #6*(52.0/12)*7*24*3600
         print("Data range: " + str(self.database[1].date) + " to " + str(self.database[-1].date))
         print("Plot range: " + fmttimestamp(oldestDate) + " to " + str(self.database[-1].date))
-        # DONE make this [storedFields.index('whatever')] into .whatever
         # TODO make function for time.mktime(time).timetuple()
-        #print self.gnuplot_p.communicate()
-        #print self.gnuplot_p.stdout.read()
 
         # write each of the records to the pipe
         if (self.timeScale == "periodic"):
@@ -1582,7 +1580,6 @@ class PyMPG:
         return
 
     def updateBool(self, button, window, col):
-        #print button.get_active(), self.database[window.row][storedFields[col]]
         if (window.row==None) or (button.get_active() != (self.database[window.row][storedFields[col]] == "Yes")):
             self.makeDirty()
             self.database[window.row][storedFields[col]] = button.get_active()
