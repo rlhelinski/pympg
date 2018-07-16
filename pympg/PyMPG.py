@@ -28,7 +28,6 @@ progurl = "http://pgmdb.sf.net/"
 pmxversion = '0.2'
 
 invalidStr = "--"
-dateFmtStr = "%Y/%m/%d"
 
 daysPerYear = 365.25
 numSigFigs = 3
@@ -43,7 +42,7 @@ def mktimestamp(timeobj):
     return int(time.mktime(timeobj.timetuple()))
 
 def fmttimestamp(timestamp):
-    return datetime.datetime.fromtimestamp(timestamp).strftime(dateFmtStr)
+    return datetime.datetime.fromtimestamp(timestamp).strftime(UserPrefs.config['locale']['datefmt'])
 
 def etree_pretty(elem):
     '''Return a pretty-printed XML string for the Element.
@@ -72,7 +71,7 @@ class UserPrefManager:
     file_path = os.path.expanduser(os.path.join('~', '.pympg', 'pympg.ini'))
 
     def __init__(self):
-        self.config = configparser.ConfigParser()
+        self.config = configparser.RawConfigParser()
         if (os.path.isfile(self.file_path)):
             self.load()
         else:
@@ -85,9 +84,11 @@ class UserPrefManager:
         self.config.read(self.file_path)
 
     def load_defaults(self):
-        self.config['gnuplot'] = defaults = {'path': 'gnuplot',
-                                             'term': ''}
-        self.config['recent'] = []
+        self.config['gnuplot'] = {'path': 'gnuplot',
+                                  'term': ''}
+        self.config['locale'] = {
+            'datefmt': '%Y/%m/%d'
+        }
 
     def save(self):
         with open(self.file_path, 'w') as configfile:
@@ -164,7 +165,7 @@ class FuelRecord():
 
     def getText(self, field):
         if (field == "date"):
-            return self.fields[field].date().strftime(dateFmtStr)
+            return self.fields[field].date().strftime(UserPrefs.config['locale']['datefmt'])
 
         elif (field == "tankcost"):
             cost = self.fields['gals'] * self.fields['dpg']
@@ -187,7 +188,7 @@ class FuelRecord():
             if (field == "odo"):
                 retval = int(text)
             elif (field == "date"):
-                retval = datetime.datetime.strptime(text, dateFmtStr)
+                retval = datetime.datetime.strptime(text, UserPrefs.config['locale']['datefmt'])
             elif (field == "gals" or field == "dpg"):
                 retval = round(float(text), numSigFigs)
             elif (field == "fill"):
@@ -668,7 +669,10 @@ class EditWindow:
         self.table = Gtk.Table(len(storedFields) + 1, 2, False)
         self.entryMap = dict()
         for x in range(0, len(storedFields)):
-            label = Gtk.Label(storedFieldLabels[x])
+            label = Gtk.Label(
+                storedFieldLabels[x] + ' (' + UserPrefs.config['locale']['datefmt'] + ')' if \
+                (storedFields[x] == 'date') else \
+                storedFieldLabels[x])
             self.table.attach(label, 0, 1, x, x + 1)
 
             if (storedFields[x] == 'fill'):
@@ -684,7 +688,7 @@ class EditWindow:
                 entry = Gtk.Entry()
                 if (self.row is None):
                     if (storedFields[x] == 'date'):
-                        entry.set_text(datetime.date.today().strftime(dateFmtStr))
+                        entry.set_text(datetime.date.today().strftime(UserPrefs.config['locale']['datefmt']))
                 else:
                     entry.set_text(self.database.getText(self.row, storedFields[x]))
                 entry.connect("activate", self.updateField, self, x)
@@ -1384,7 +1388,7 @@ class PyMPG:
         commands = [
         # having trouble with default 'aqua' on Mac OSX
         # use 'wxt' or 'windows' for Windows
-            ("set term %s" % UserPrefs['GnuPlotTerm'] if ('GnuPlotTerm' in UserPrefs) and (UserPrefs['GnuPlotTerm'].strip() != "") else ""),
+            ("set term %s" % UserPrefs.config['gnuplot']['term'] if ('term' in UserPrefs.config['gnuplot']) and (UserPrefs.config['gnuplot']['term'].strip() != "") else ""),
             "set xdata time" if (self.timeScale != "periodic") else "set xdata",
             "set timefmt '%s'" if (self.timeScale != "periodic") else "",
             "set xtics nomirror rotate by -45" if (self.timeScale != "periodic") else "set xtics rotate by 0",
@@ -1399,9 +1403,9 @@ class PyMPG:
             ]
 
         if (not self.isPlotActive()):
-            print(UserPrefs['GnuPlotPath'])
+            print(UserPrefs.config['gnuplot']['path'])
             self.gnuplot_p = subprocess.Popen(
-                UserPrefs['GnuPlotPath'], shell=True,
+                UserPrefs.config['gnuplot']['path'], shell=True,
                 stdin=subprocess.PIPE,
                 stderr=subprocess.STDOUT
                 )
